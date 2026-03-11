@@ -36,6 +36,8 @@ export default async function LoginPage({
   return (
     <AuthShell
       description="Sign in with your display name and password."
+      heroDescription="Sign in to manage the queue, browse songs, and run the server."
+      heroTitle="Welcome Back"
       title="Login"
     >
       <LoginForm error={getLoginError(params.error)} />
