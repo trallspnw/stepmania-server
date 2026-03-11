@@ -2,8 +2,13 @@
 .gitignore
 .next
 node_modules
+.env
+.env.local
+.env.*.local
+.env*
+!.env.example
 docs
 README.md
 pnpm-debug.log*
 *.log
-
+.data

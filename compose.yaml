@@ -6,7 +6,21 @@ services:
     ports:
       - "3000:3000"
     environment:
+      DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: 3000
+    depends_on:
+      - postgres
+    restart: unless-stopped
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: stepmania
+      POSTGRES_USER: stepmania
+      POSTGRES_PASSWORD: stepmania
+    ports:
+      - "5432:5432"
+    volumes:
+      - ${POSTGRES_DATA_DIR}:/var/lib/postgresql/data
     restart: unless-stopped

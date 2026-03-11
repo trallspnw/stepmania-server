@@ -17,9 +17,21 @@ services:
     ports:
       - "3011:3000"
     environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://stepmania:stepmania@postgres:5432/stepmania}
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: 3000
+    depends_on:
+      - postgres
+    restart: unless-stopped
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: stepmania
+      POSTGRES_USER: stepmania
+      POSTGRES_PASSWORD: stepmania
+    volumes:
+      - ${POSTGRES_DATA_DIR:-./data/postgres}:/var/lib/postgresql/data
     restart: unless-stopped
 ```
 
@@ -27,6 +39,9 @@ Notes:
 
 - The app listens on container port `3000`.
 - `HOSTNAME=0.0.0.0` is required so Next.js binds correctly inside the container.
+- `DATABASE_URL` is read from the environment with a Compose fallback and should use the Compose service name (`postgres`) for in-stack connections.
+- `POSTGRES_DATA_DIR` can be set in the stack `.env` file. Use the root [`.env.example`](../../.env.example) as the reference source.
+- With your stack at `/stacks/stepmania/compose.yaml`, the default resolves to `/stacks/stepmania/data/postgres`.
 - The `#main` suffix in the Git build context controls which branch Komodo builds from.
 
 ## Updating In Komodo
