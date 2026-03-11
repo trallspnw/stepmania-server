@@ -4,9 +4,9 @@ Next.js service for managing a queue of StepMania songs.
 
 Current status:
 
-- `docs/v0-design/` contains the initial reference design.
 - `docs/` is the canonical place for project knowledge, context, deployment notes, references, and planning docs.
 - The application scaffold lives at the repository root.
+- The current mobile-first UI prototype now lives in the main app at the repository root.
 - Docker deployment is supported for both local Compose usage and remote Compose managers such as Komodo.
 
 ## Getting started
@@ -59,4 +59,4 @@ Notes:
 - `HOSTNAME=0.0.0.0` is required so the Next.js server binds to the container interface.
 - If you change branches, update the `#main` suffix in the Git build context.
 
-The initial template is intentionally minimal. The next steps are song directory ingestion, Postgres integration, and porting the `docs/v0-design` UI into the app.
+The current prototype is intentionally frontend-only. The next steps are song directory ingestion, Postgres integration, and replacing hardcoded mock data with real application state.

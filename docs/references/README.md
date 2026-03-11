@@ -9,10 +9,6 @@ Suggested contents:
 - design references
 - API and protocol notes
 
-Current references:
-
-- [`../v0-design/`](../v0-design/): initial design reference artifacts.
-
 Related:
 
 - [`../index.md`](../index.md)

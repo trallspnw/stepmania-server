@@ -12,13 +12,12 @@ Everything in `docs/` should either be linked here directly or be reachable from
 - [`references/README.md`](./references/README.md): external references and design/source material.
 - [`tasks/README.md`](./tasks/README.md): task tracking and execution notes.
 - [`plans/README.md`](./plans/README.md): implementation plans and future work structure.
-- [`v0-design/`](./v0-design/): reference design workspace.
 
 ## Current Pointers
 
 - Deployment docs: [`deployment/README.md`](./deployment/README.md)
 - General project knowledge: [`knowledge/README.md`](./knowledge/README.md)
-- Design reference: [`v0-design/`](./v0-design/)
+- Current app implementation: [`../app/`](../app/)
 
 ## Discoverability Rule
 

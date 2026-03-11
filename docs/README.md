@@ -12,7 +12,6 @@ Use [`index.md`](./index.md) as the primary discovery page. It links to the acti
 - [`references/`](./references/): external references, design links, and source material snapshots.
 - [`tasks/`](./tasks/): active and completed task notes.
 - [`plans/`](./plans/): implementation plans and larger work breakdowns.
-- [`v0-design/`](./v0-design/): initial design reference artifacts.
 
 ## Conventions
 
