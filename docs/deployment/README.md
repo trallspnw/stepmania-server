@@ -22,7 +22,8 @@ services:
       HOSTNAME: 0.0.0.0
       PORT: 3000
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
   postgres:
     image: postgres:17-alpine
@@ -30,6 +31,11 @@ services:
       POSTGRES_DB: stepmania
       POSTGRES_USER: stepmania
       POSTGRES_PASSWORD: stepmania
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     volumes:
       - ${POSTGRES_DATA_DIR:-./data/postgres}:/var/lib/postgresql/data
     restart: unless-stopped
@@ -40,6 +46,7 @@ Notes:
 - The app listens on container port `3000`.
 - `HOSTNAME=0.0.0.0` is required so Next.js binds correctly inside the container.
 - `DATABASE_URL` is read from the environment with a Compose fallback and should use the Compose service name (`postgres`) for in-stack connections.
+- The app container runs `prisma migrate deploy` automatically before starting the server.
 - `POSTGRES_DATA_DIR` can be set in the stack `.env` file. Use the root [`.env.example`](../../.env.example) as the reference source.
 - With your stack at `/stacks/stepmania/compose.yaml`, the default resolves to `/stacks/stepmania/data/postgres`.
 - The `#main` suffix in the Git build context controls which branch Komodo builds from.

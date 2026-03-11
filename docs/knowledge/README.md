@@ -10,6 +10,10 @@ Suggested contents:
 - decisions with rationale
 - working assumptions that should survive individual tasks
 
+Current notes:
+
+- [`migration-workflow.md`](./migration-workflow.md): how Prisma migrations are created, committed, and applied locally and in deployment.
+
 Related:
 
 - [`../index.md`](../index.md)

@@ -17,6 +17,7 @@ Everything in `docs/` should either be linked here directly or be reachable from
 
 - Deployment docs: [`deployment/README.md`](./deployment/README.md)
 - General project knowledge: [`knowledge/README.md`](./knowledge/README.md)
+- Migration workflow: [`knowledge/migration-workflow.md`](./knowledge/migration-workflow.md)
 - Current app implementation: [`../app/`](../app/)
 
 ## Discoverability Rule

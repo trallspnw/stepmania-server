@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { checkDatabaseConnection } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const connection = await checkDatabaseConnection();
+    const [connection] = await prisma.$queryRaw<
+      { now: string; current_database: string; current_user: string }[]
+    >`select now()::text, current_database(), current_user`;
 
     return NextResponse.json({
       ok: true,

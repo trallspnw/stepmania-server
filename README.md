@@ -19,6 +19,8 @@ pnpm dev
 Use [`.env.example`](./.env.example) as the single env reference file.
 
 - For local app development outside Docker, copy it to `.env.local` and set `DATABASE_URL` as needed.
+- Set `NEXTAUTH_SECRET` in every environment. For production, use a long random secret.
+- Set `NEXTAUTH_URL` to the externally reachable app URL for the environment.
 - For Docker Compose overrides, copy it to `.env` beside `compose.yaml` and keep only the values you want Compose to read, such as `POSTGRES_DATA_DIR`.
 - When running `pnpm dev` on your host against the Compose Postgres container, use `localhost` in `.env.local` for `DATABASE_URL`.
 
@@ -44,6 +46,7 @@ The stack now includes:
 - `postgres`: PostgreSQL with a bind-mounted data directory
 
 The app connects through `DATABASE_URL`. A simple connection probe is available at `GET /api/health/db`.
+On container startup, the app runs `prisma migrate deploy` before booting the Next.js server.
 
 Compose reads `DATABASE_URL` from the environment with a default fallback, so you can explicitly override it in a stack `.env` file without editing `compose.yaml`.
 
@@ -89,3 +92,21 @@ Notes:
 - If you change branches, update the `#main` suffix in the Git build context.
 
 The current prototype is still mostly frontend-only. The next steps are schema design, user data modeling, song directory ingestion, and replacing hardcoded mock data with real application state.
+
+## Auth Bootstrap
+
+The app now supports first-run bootstrap and login:
+
+- `GET /setup`: available only until the first admin user exists
+- `GET /login`: standard sign-in page after bootstrap
+- `GET /dashboard`: protected placeholder page after login
+
+Prisma setup commands:
+
+```bash
+pnpm prisma:generate
+pnpm prisma:migrate:dev
+pnpm prisma:migrate:deploy
+pnpm prisma:migrate:status
+pnpm prisma:studio
+```
