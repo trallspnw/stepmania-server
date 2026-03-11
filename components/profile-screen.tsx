@@ -1,5 +1,6 @@
 "use client";
 
+import { signOut } from "next-auth/react";
 import { LogOutIcon, MusicIcon, TrophyIcon } from "@/components/icons";
 import { useApp } from "@/lib/app-context";
 import {
@@ -11,7 +12,7 @@ import {
 } from "@/lib/mock-data";
 
 export function ProfileScreen() {
-  const { state, signOut } = useApp();
+  const { state } = useApp();
   const currentPlayer = getPlayerById(state.currentPlayerId);
 
   if (!currentPlayer) {
@@ -111,7 +112,11 @@ export function ProfileScreen() {
         )}
       </section>
 
-      <button className="ghostButton logoutButton" onClick={signOut} type="button">
+      <button
+        className="ghostButton logoutButton"
+        onClick={() => signOut({ callbackUrl: "/login" })}
+        type="button"
+      >
         <LogOutIcon className="tinyIcon" />
         <span>Sign Out</span>
       </button>
