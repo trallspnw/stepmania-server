@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import styles from "@/components/dance-queue-app.module.css";
 import { BottomNav, Tab } from "@/components/bottom-nav";
@@ -13,7 +14,7 @@ import {
 } from "@/components/icons";
 import { ProfileScreen } from "@/components/profile-screen";
 import { QueueScreen } from "@/components/queue-screen";
-import { AppProvider } from "@/lib/app-context";
+import { AppProvider, useApp } from "@/lib/app-context";
 
 interface DanceQueueAppProps {
   currentUser: {
@@ -32,6 +33,7 @@ const tabMeta = {
 function AppFrame() {
   const [activeTab, setActiveTab] = useState<Tab>("queue");
   const { title, Icon } = tabMeta[activeTab];
+  const { currentUser } = useApp();
 
   return (
     <div className={styles.root}>
@@ -39,11 +41,18 @@ function AppFrame() {
         <div className="appShell">
           <header className="topBar">
             <div className="topBarInner">
-              <Icon className="sectionIcon accentIcon" />
-              <div>
-                <p className="topBarLabel">StepMania Server</p>
-                <h1>{title}</h1>
+              <div className="topBarTitle">
+                <Icon className="sectionIcon accentIcon" />
+                <div>
+                  <p className="topBarLabel">StepMania Server</p>
+                  <h1>{title}</h1>
+                </div>
               </div>
+              {currentUser.isAdmin ? (
+                <Link className="headerAction" href="/admin">
+                  Admin
+                </Link>
+              ) : null}
             </div>
           </header>
 

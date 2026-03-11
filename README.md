@@ -100,6 +100,7 @@ The app now supports first-run bootstrap and login:
 - `GET /setup`: available only until the first admin user exists
 - `GET /login`: standard sign-in page after bootstrap
 - `GET /dashboard`: protected placeholder page after login
+- `GET /admin`: admin-only management surface for users and invites
 - Display names preserve entered casing for display, but login and uniqueness are case-insensitive
 
 Prisma setup commands:
@@ -114,3 +115,9 @@ pnpm prisma:studio
 ```
 
 `pnpm db:reset:local` is for local testing only. It wipes the local Compose Postgres schema and reapplies committed Prisma migrations.
+
+Current admin scope:
+
+- Users tab supports role/status changes, password resets, and invite generation/revocation without full-page reloads.
+- Library and Queue tabs are placeholders.
+- Invite links resolve to a placeholder page until invite claim flow is implemented.

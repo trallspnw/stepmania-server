@@ -82,11 +82,19 @@
 .root :global(.topBarInner) {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.9rem;
   min-height: 4.5rem;
   width: min(100%, var(--shell-width));
   margin: 0 auto;
   padding: 1rem 1.25rem;
+}
+
+.root :global(.topBarTitle) {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
 }
 
 .root :global(.topBarLabel) {
@@ -363,6 +371,24 @@
 
 .root :global(.accentIcon) {
   color: var(--accent);
+}
+
+.root :global(.headerAction) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.6rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .root :global(.toolbar) {
@@ -716,6 +742,7 @@
   .root :global(.ghostButton:hover),
   .root :global(.folderRow:hover),
   .root :global(.songCard:hover),
+  .root :global(.headerAction:hover),
   .root :global(.navButton:hover),
   .root :global(.primaryButton:hover),
   .root :global(.textButton:hover) {
