@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
+import { normalizeDisplayName } from "@/lib/users";
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -33,7 +34,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await prisma.user.findUnique({
-          where: { displayName },
+          where: {
+            displayNameNormalized: normalizeDisplayName(displayName),
+          },
         });
 
         if (!user || !user.isActive) {

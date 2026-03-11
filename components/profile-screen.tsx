@@ -12,7 +12,7 @@ import {
 } from "@/lib/mock-data";
 
 export function ProfileScreen() {
-  const { state } = useApp();
+  const { state, currentUser } = useApp();
   const currentPlayer = getPlayerById(state.currentPlayerId);
 
   if (!currentPlayer) {
@@ -34,10 +34,10 @@ export function ProfileScreen() {
   return (
     <div className="stack profileStack">
       <section className="profileHero">
-        <div className="profileAvatar">{currentPlayer.name.charAt(0)}</div>
+        <div className="profileAvatar">{currentUser.displayName.charAt(0)}</div>
         <div>
-          <h2>{currentPlayer.name}</h2>
-          {currentPlayer.isAdmin ? <span className="softPill">Admin</span> : null}
+          <h2>{currentUser.displayName}</h2>
+          {currentUser.isAdmin ? <span className="softPill">Admin</span> : null}
         </div>
       </section>
 

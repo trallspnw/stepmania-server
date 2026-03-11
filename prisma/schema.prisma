@@ -8,12 +8,13 @@ datasource db {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  displayName  String   @unique @map("display_name")
-  passwordHash String   @map("password_hash")
-  isAdmin      Boolean  @default(false) @map("is_admin")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                    Int      @id @default(autoincrement())
+  displayName           String   @map("display_name")
+  displayNameNormalized String   @unique @map("display_name_normalized")
+  passwordHash          String   @map("password_hash")
+  isAdmin               Boolean  @default(false) @map("is_admin")
+  isActive              Boolean  @default(true) @map("is_active")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@map("users")
 }

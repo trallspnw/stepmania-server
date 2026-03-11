@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hasAdminUser } from "@/lib/users";
+import { hasAdminUser, normalizeDisplayName } from "@/lib/users";
 
 export async function POST(request: Request) {
   if (await hasAdminUser()) {
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     await prisma.user.create({
       data: {
         displayName,
+        displayNameNormalized: normalizeDisplayName(displayName),
         passwordHash,
         isAdmin: true,
       },

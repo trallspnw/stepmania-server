@@ -9,6 +9,7 @@
     "lint": "eslint",
     "deps:up": "docker compose up -d postgres",
     "deps:down": "docker compose stop postgres",
+    "db:reset:local": "sh ./scripts/reset-local-db.sh",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:dev": "prisma migrate dev",

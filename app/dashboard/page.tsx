@@ -12,5 +12,12 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  return <DanceQueueApp />;
+  return (
+    <DanceQueueApp
+      currentUser={{
+        displayName: session.user.displayName,
+        isAdmin: session.user.isAdmin,
+      }}
+    />
+  );
 }

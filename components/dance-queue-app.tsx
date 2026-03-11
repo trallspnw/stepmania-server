@@ -15,6 +15,13 @@ import { ProfileScreen } from "@/components/profile-screen";
 import { QueueScreen } from "@/components/queue-screen";
 import { AppProvider } from "@/lib/app-context";
 
+interface DanceQueueAppProps {
+  currentUser: {
+    displayName: string;
+    isAdmin: boolean;
+  };
+}
+
 const tabMeta = {
   queue: { title: "Queue", Icon: QueueIcon },
   browse: { title: "Browse", Icon: SearchIcon },
@@ -54,9 +61,9 @@ function AppFrame() {
   );
 }
 
-export function DanceQueueApp() {
+export function DanceQueueApp({ currentUser }: DanceQueueAppProps) {
   return (
-    <AppProvider>
+    <AppProvider currentUser={currentUser}>
       <AppFrame />
     </AppProvider>
   );

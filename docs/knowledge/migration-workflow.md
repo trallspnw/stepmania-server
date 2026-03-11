@@ -31,10 +31,13 @@ After that, commit:
 Useful local commands:
 
 ```bash
+pnpm db:reset:local
 pnpm prisma:generate
 pnpm prisma:migrate:status
 pnpm prisma:studio
 ```
+
+`pnpm db:reset:local` is the local wipe path for testing first-run flows. It drops and recreates the local `public` schema in the Compose Postgres container, then runs `prisma migrate deploy`.
 
 ## Pulling Latest Changes
 

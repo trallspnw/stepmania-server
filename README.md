@@ -100,13 +100,17 @@ The app now supports first-run bootstrap and login:
 - `GET /setup`: available only until the first admin user exists
 - `GET /login`: standard sign-in page after bootstrap
 - `GET /dashboard`: protected placeholder page after login
+- Display names preserve entered casing for display, but login and uniqueness are case-insensitive
 
 Prisma setup commands:
 
 ```bash
+pnpm db:reset:local
 pnpm prisma:generate
 pnpm prisma:migrate:dev
 pnpm prisma:migrate:deploy
 pnpm prisma:migrate:status
 pnpm prisma:studio
 ```
+
+`pnpm db:reset:local` is for local testing only. It wipes the local Compose Postgres schema and reapplies committed Prisma migrations.

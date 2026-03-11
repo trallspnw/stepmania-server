@@ -20,6 +20,11 @@ interface AppState {
   historyEntries: HistoryEntry[];
 }
 
+interface CurrentUser {
+  displayName: string;
+  isAdmin: boolean;
+}
+
 type AppAction =
   | { type: "ADD_TO_QUEUE"; payload: { songId: string; difficulty: Difficulty } }
   | { type: "REMOVE_FROM_QUEUE"; payload: { entryId: string } }
@@ -67,6 +72,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
 interface AppContextValue {
   state: AppState;
+  currentUser: CurrentUser;
   addToQueue: (songId: string, difficulty: Difficulty) => void;
   removeFromQueue: (entryId: string) => void;
   signOut: () => void;
@@ -74,13 +80,20 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
-export function AppProvider({ children }: { children: ReactNode }) {
+export function AppProvider({
+  children,
+  currentUser,
+}: {
+  children: ReactNode;
+  currentUser: CurrentUser;
+}) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
   return (
     <AppContext.Provider
       value={{
         state,
+        currentUser,
         addToQueue: (songId, difficulty) =>
           dispatch({ type: "ADD_TO_QUEUE", payload: { songId, difficulty } }),
         removeFromQueue: (entryId) =>
