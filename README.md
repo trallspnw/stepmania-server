@@ -6,7 +6,7 @@ Current status:
 
 - `docs/v0-design/` contains the initial reference design.
 - The application scaffold lives at the repository root.
-- Docker Compose and Postgres will be added after the initial app setup.
+- Docker Compose support is included for app-only deployment.
 
 ## Getting started
 
@@ -15,4 +15,14 @@ pnpm install
 pnpm dev
 ```
 
-The initial template is intentionally minimal. The next steps are Docker Compose, Postgres integration, song directory ingestion, and porting the `docs/v0-design` UI into the app.
+## Docker
+
+Build and run with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+The app will be available on `http://localhost:3000`.
+
+The initial template is intentionally minimal. The next steps are song directory ingestion, Postgres integration, and porting the `docs/v0-design` UI into the app.

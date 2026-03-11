@@ -1,0 +1,9 @@
+.git
+.gitignore
+.next
+node_modules
+docs
+README.md
+pnpm-debug.log*
+*.log
+
