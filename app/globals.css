@@ -1,4 +1,5 @@
 :root {
+  --shell-width: 72rem;
   --bg-page: #ece8df;
   --bg-shell: rgba(255, 250, 244, 0.82);
   --bg-card: rgba(255, 255, 255, 0.86);
@@ -44,6 +45,7 @@ body {
     radial-gradient(circle at top left, rgba(232, 138, 89, 0.28), transparent 28%),
     radial-gradient(circle at top right, rgba(111, 154, 214, 0.2), transparent 22%),
     linear-gradient(180deg, #f5f0e8 0%, var(--bg-page) 100%);
+  background-attachment: fixed;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -74,25 +76,24 @@ a {
 .appCanvas {
   min-height: 100vh;
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   justify-content: center;
   padding: 0;
 }
 
 .appShell {
   position: relative;
-  width: min(100%, 30rem);
+  width: min(100%, var(--shell-width));
   min-height: 100vh;
-  background: var(--bg-shell);
-  backdrop-filter: blur(22px);
-  box-shadow: var(--shadow);
-  border-inline: 1px solid rgba(255, 255, 255, 0.45);
+  background: transparent;
 }
 
 .topBar {
   position: sticky;
   top: 0;
   z-index: 30;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
   backdrop-filter: blur(18px);
   background: linear-gradient(180deg, rgba(255, 249, 241, 0.95), rgba(255, 249, 241, 0.82));
   border-bottom: 1px solid var(--line);
@@ -103,6 +104,8 @@ a {
   align-items: center;
   gap: 0.9rem;
   min-height: 4.5rem;
+  width: min(100%, var(--shell-width));
+  margin: 0 auto;
   padding: 1rem 1.25rem;
 }
 
@@ -125,7 +128,9 @@ a {
 }
 
 .screenBody {
-  padding: 1rem 1rem 5.75rem;
+  width: min(100%, var(--shell-width));
+  margin: 0 auto;
+  padding: 1rem 1rem 7.25rem;
 }
 
 .stack {
@@ -560,12 +565,13 @@ a {
 
 .bottomNav {
   position: fixed;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: 0;
   z-index: 40;
-  width: min(100%, 30rem);
-  transform: translateX(-50%);
-  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  justify-content: center;
+  padding: 0 0.75rem calc(0.55rem + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(255, 249, 241, 0), rgba(255, 249, 241, 0.96) 40%);
 }
 
@@ -573,7 +579,8 @@ a {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.25rem;
-  margin: 0.65rem 0.75rem 0.75rem;
+  width: min(100%, var(--shell-width));
+  margin: 0;
   padding: 0.45rem;
   border: 1px solid var(--line);
   border-radius: 1.35rem;
@@ -737,10 +744,12 @@ a {
 }
 
 @media (max-width: 640px) {
+  .appCanvas {
+    padding: 0;
+  }
+
   .appShell {
     width: 100%;
-    box-shadow: none;
-    border-inline: 0;
   }
 
   .topBarInner,
@@ -750,11 +759,6 @@ a {
   }
 
   .screenBody {
-    padding-bottom: 5.55rem;
-  }
-
-  .bottomNavInner {
-    margin-left: 0.6rem;
-    margin-right: 0.6rem;
+    padding-bottom: 6.7rem;
   }
 }

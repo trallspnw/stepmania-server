@@ -150,3 +150,29 @@ export function LogOutIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+export function StepArrowIcon(props: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      viewBox="0 0 24 24"
+      {...props}
+    >
+      <path
+        d="M12 2.75 20.25 11h-4.1v7.25H7.85V11h-4.1z"
+        fill="currentColor"
+      />
+      <path
+        d="M12 5.4 17.2 10.6h-2.4v5.25H9.2V10.6H6.8z"
+        fill="#fff7ee"
+        opacity="0.92"
+      />
+      <path
+        d="M12 8.2 14.7 10.9h-1.25v2.55h-2.9V10.9H9.3z"
+        fill="currentColor"
+        opacity="0.92"
+      />
+    </svg>
+  );
+}

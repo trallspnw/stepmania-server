@@ -4,7 +4,12 @@ import { useState } from "react";
 import { BottomNav, Tab } from "@/components/bottom-nav";
 import { BrowseScreen } from "@/components/browse-screen";
 import { HistoryScreen } from "@/components/history-screen";
-import { HistoryIcon, QueueIcon, SearchIcon, UserIcon } from "@/components/icons";
+import {
+  HistoryIcon,
+  QueueIcon,
+  SearchIcon,
+  UserIcon,
+} from "@/components/icons";
 import { ProfileScreen } from "@/components/profile-screen";
 import { QueueScreen } from "@/components/queue-screen";
 import { AppProvider } from "@/lib/app-context";
@@ -27,7 +32,7 @@ function AppFrame() {
           <div className="topBarInner">
             <Icon className="sectionIcon accentIcon" />
             <div>
-              <p className="topBarLabel">Dance Queue</p>
+              <p className="topBarLabel">StepMania Server</p>
               <h1>{title}</h1>
             </div>
           </div>
