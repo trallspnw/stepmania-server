@@ -3,6 +3,22 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hasAdminUser, normalizeDisplayName } from "@/lib/users";
 
+function getRedirectUrl(request: Request, path: string) {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const host = forwardedHost ?? request.headers.get("host");
+
+  if (host) {
+    return new URL(path, `${forwardedProto ?? "https"}://${host}`);
+  }
+
+  if (process.env.NEXTAUTH_URL) {
+    return new URL(path, process.env.NEXTAUTH_URL);
+  }
+
+  return new URL(path, request.url);
+}
+
 export async function POST(request: Request) {
   if (await hasAdminUser()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -14,19 +30,19 @@ export async function POST(request: Request) {
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
   if (!displayName || !password || !confirmPassword) {
-    return NextResponse.redirect(new URL("/setup?error=missing_fields", request.url), 303);
+    return NextResponse.redirect(getRedirectUrl(request, "/setup?error=missing_fields"), 303);
   }
 
   if (password.length < 8) {
     return NextResponse.redirect(
-      new URL("/setup?error=password_too_short", request.url),
+      getRedirectUrl(request, "/setup?error=password_too_short"),
       303,
     );
   }
 
   if (password !== confirmPassword) {
     return NextResponse.redirect(
-      new URL("/setup?error=password_mismatch", request.url),
+      getRedirectUrl(request, "/setup?error=password_mismatch"),
       303,
     );
   }
@@ -50,7 +66,7 @@ export async function POST(request: Request) {
       error.code === "P2002"
     ) {
       return NextResponse.redirect(
-        new URL("/setup?error=display_name_taken", request.url),
+        getRedirectUrl(request, "/setup?error=display_name_taken"),
         303,
       );
     }
@@ -58,5 +74,5 @@ export async function POST(request: Request) {
     throw error;
   }
 
-  return NextResponse.redirect(new URL("/login", request.url), 303);
+  return NextResponse.redirect(getRedirectUrl(request, "/login"), 303);
 }
