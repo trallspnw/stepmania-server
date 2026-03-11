@@ -1,9 +1,8 @@
 services:
-  app:
+  stepmania-server:
     build:
       context: .
       dockerfile: Dockerfile
-    image: stepmania-server:local
     ports:
       - "3000:3000"
     environment:
@@ -11,4 +10,3 @@ services:
       HOSTNAME: 0.0.0.0
       PORT: 3000
     restart: unless-stopped
-
