@@ -1,0 +1,740 @@
+.root {
+  --shell-width: 72rem;
+  --bg-page: #ece8df;
+  --bg-card: rgba(255, 255, 255, 0.86);
+  --bg-card-strong: rgba(255, 255, 255, 0.96);
+  --bg-muted: rgba(92, 79, 62, 0.08);
+  --bg-muted-strong: rgba(92, 79, 62, 0.14);
+  --text: #261f17;
+  --text-muted: #736457;
+  --line: rgba(75, 59, 43, 0.12);
+  --accent: #d45d31;
+  --success: #2b9a66;
+  --danger: #c25151;
+  --difficulty-beginner: #29a86b;
+  --difficulty-easy: #2892d4;
+  --difficulty-medium: #d59f27;
+  --difficulty-hard: #d45567;
+  --difficulty-expert: #7857d8;
+  --grade-s: #d6ab1d;
+  --grade-a: #2b9a66;
+  --grade-b: #2892d4;
+  --grade-c: #67717c;
+  --font-sans: "Avenir Next", "Inter", "Segoe UI", sans-serif;
+  --font-mono: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  min-height: 100vh;
+  width: 100%;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(232, 138, 89, 0.28), transparent 28%),
+    radial-gradient(circle at top right, rgba(111, 154, 214, 0.2), transparent 22%),
+    linear-gradient(180deg, #f5f0e8 0%, var(--bg-page) 100%);
+  background-attachment: fixed;
+  font-family: var(--font-sans);
+}
+
+.root :global(*) {
+  box-sizing: border-box;
+}
+
+.root :global(button),
+.root :global(input) {
+  font: inherit;
+}
+
+.root :global(a) {
+  color: inherit;
+  text-decoration: none;
+}
+
+.root :global(.appCanvas) {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0;
+}
+
+.root :global(.appCanvas button) {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.root :global(.appShell) {
+  position: relative;
+  width: min(100%, var(--shell-width));
+  min-height: 100vh;
+  background: transparent;
+}
+
+.root :global(.topBar) {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  backdrop-filter: blur(18px);
+  background: linear-gradient(180deg, rgba(255, 249, 241, 0.95), rgba(255, 249, 241, 0.82));
+  border-bottom: 1px solid var(--line);
+}
+
+.root :global(.topBarInner) {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 4.5rem;
+  width: min(100%, var(--shell-width));
+  margin: 0 auto;
+  padding: 1rem 1.25rem;
+}
+
+.root :global(.topBarLabel) {
+  margin-bottom: 0.2rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.root :global(.topBar h1),
+.root :global(.toolbar h2),
+.root :global(.profileHero h2),
+.root :global(.sheet h2),
+.root :global(.emptyState h2) {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.root :global(.screenBody) {
+  width: min(100%, var(--shell-width));
+  margin: 0 auto;
+  padding: 1rem 1rem 7.25rem;
+}
+
+.root :global(.stack) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.root :global(.stack.tight) {
+  gap: 0.7rem;
+}
+
+.root :global(.browseStack) {
+  position: relative;
+}
+
+.root :global(.card),
+.root :global(.folderRow) {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  box-shadow: 0 12px 36px rgba(84, 59, 39, 0.06);
+}
+
+.root :global(.card) {
+  padding: 1rem;
+}
+
+.root :global(.queueCard),
+.root :global(.historyCard),
+.root :global(.songCard),
+.root :global(.folderRow) {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+.root :global(.queueCard.isPlaying) {
+  border-color: rgba(43, 154, 102, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(43, 154, 102, 0.16),
+    0 16px 40px rgba(43, 154, 102, 0.12);
+  background:
+    linear-gradient(180deg, rgba(43, 154, 102, 0.06), transparent 45%),
+    var(--bg-card-strong);
+}
+
+.root :global(.queueMeta) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 1.75rem;
+}
+
+.root :global(.queuePosition),
+.root :global(.inputLabel) {
+  font-family: var(--font-mono);
+}
+
+.root :global(.queuePosition) {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.root :global(.liveDot) {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  background: var(--success);
+  box-shadow: 0 0 0 0 rgba(43, 154, 102, 0.45);
+  animation: pulse 1.6s infinite;
+}
+
+.root :global(.queueContent),
+.root :global(.historyContent),
+.root :global(.songCardCopy),
+.root :global(.folderCopy),
+.root :global(.toolbarCopy) {
+  min-width: 0;
+  flex: 1;
+}
+
+.root :global(.queueContent h3),
+.root :global(.historyContent h3),
+.root :global(.songCard h3),
+.root :global(.folderCopy h3),
+.root :global(.panelCard h3),
+.root :global(.splitRow h3) {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.root :global(.muted),
+.root :global(.songCard p),
+.root :global(.folderCopy p),
+.root :global(.toolbarCopy p),
+.root :global(.sheetHeader p),
+.root :global(.inputLabel) {
+  color: var(--text-muted);
+}
+
+.root :global(.metaRow) {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+  font-size: 0.86rem;
+}
+
+.root :global(.metaRow.wrap) {
+  flex-wrap: wrap;
+}
+
+.root :global(.eyebrowPill),
+.root :global(.pill),
+.root :global(.softPill) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.root :global(.eyebrowPill) {
+  margin-bottom: 0.4rem;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: rgba(43, 154, 102, 0.15);
+  color: var(--success);
+}
+
+.root :global(.pill),
+.root :global(.softPill) {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.73rem;
+  font-weight: 700;
+}
+
+.root :global(.softPill) {
+  background: var(--bg-muted);
+  color: var(--text);
+}
+
+.root :global(.difficulty-beginner) {
+  background: var(--difficulty-beginner);
+  color: #fff;
+}
+
+.root :global(.difficulty-easy) {
+  background: var(--difficulty-easy);
+  color: #fff;
+}
+
+.root :global(.difficulty-medium) {
+  background: var(--difficulty-medium);
+  color: #fff;
+}
+
+.root :global(.difficulty-hard) {
+  background: var(--difficulty-hard);
+  color: #fff;
+}
+
+.root :global(.difficulty-expert) {
+  background: var(--difficulty-expert);
+  color: #fff;
+}
+
+.root :global(.grade-s) {
+  background: var(--grade-s);
+  color: #5a4200;
+}
+
+.root :global(.grade-a) {
+  background: var(--grade-a);
+  color: #fff;
+}
+
+.root :global(.grade-b) {
+  background: var(--grade-b);
+  color: #fff;
+}
+
+.root :global(.grade-c) {
+  background: var(--grade-c);
+  color: #fff;
+}
+
+.root :global(.gradePill) {
+  min-width: 2.2rem;
+}
+
+.root :global(.iconButton),
+.root :global(.segmentButton),
+.root :global(.ghostButton),
+.root :global(.primaryButton),
+.root :global(.textButton),
+.root :global(.folderRow),
+.root :global(.songCard) {
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.root :global(.iconButton),
+.root :global(.segmentButton),
+.root :global(.ghostButton) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+}
+
+.root :global(.iconButton) {
+  width: 2.6rem;
+  height: 2.6rem;
+  background: var(--bg-muted);
+}
+
+.root :global(.iconButton.isSelected),
+.root :global(.segmentButton.isSelected) {
+  background: rgba(38, 31, 23, 0.9);
+  color: #fff;
+}
+
+.root :global(.dangerButton) {
+  color: var(--danger);
+}
+
+.root :global(.tinyIcon) {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+.root :global(.sectionIcon) {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.root :global(.accentIcon) {
+  color: var(--accent);
+}
+
+.root :global(.toolbar) {
+  position: sticky;
+  top: 5.2rem;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.2rem;
+}
+
+.root :global(.segmentedToolbar) {
+  justify-content: space-between;
+}
+
+.root :global(.segmentGroup) {
+  display: flex;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.root :global(.segmentGroup::-webkit-scrollbar) {
+  display: none;
+}
+
+.root :global(.segmentButton) {
+  padding: 0.75rem 0.95rem;
+  background: var(--bg-muted);
+  white-space: nowrap;
+}
+
+.root :global(.searchField) {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+}
+
+.root :global(.searchField input) {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  outline: 0;
+}
+
+.root :global(.filterCard) {
+  background: var(--bg-card-strong);
+}
+
+.root :global(.filterHeader) {
+  margin-bottom: 1rem;
+}
+
+.root :global(.filterGroup) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.root :global(.filterGroup + .filterGroup) {
+  margin-top: 1.2rem;
+}
+
+.root :global(.rangeGrid) {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.root :global(.rangeGrid label) {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.root :global(.rangeGrid input[type="range"]) {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.root :global(.textButton) {
+  color: var(--text-muted);
+}
+
+.root :global(.songCard),
+.root :global(.folderRow) {
+  width: 100%;
+  text-align: left;
+}
+
+.root :global(.songCard) {
+  justify-content: space-between;
+}
+
+.root :global(.emptyInline) {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.root :global(.folderRow) {
+  padding: 0.95rem 1rem;
+}
+
+.root :global(.folderIconWrap),
+.root :global(.avatar),
+.root :global(.profileAvatar),
+.root :global(.emptyStateIcon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+}
+
+.root :global(.folderIconWrap) {
+  width: 2.6rem;
+  height: 2.6rem;
+  background: var(--bg-muted);
+}
+
+.root :global(.avatar) {
+  width: 2.55rem;
+  height: 2.55rem;
+  background: var(--bg-muted);
+  font-weight: 700;
+}
+
+.root :global(.profileAvatar) {
+  width: 4.15rem;
+  height: 4.15rem;
+  background: rgba(38, 31, 23, 0.92);
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.root :global(.profileHero) {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.25rem 0;
+}
+
+.root :global(.profileStack) {
+  gap: 1rem;
+}
+
+.root :global(.panelCard) {
+  gap: 0.85rem;
+}
+
+.root :global(.panelHeader) {
+  margin-bottom: 0.9rem;
+}
+
+.root :global(.panelTitle) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+
+.root :global(.splitRow) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.root :global(.logoutButton.ghostButton) {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  background: var(--danger);
+  color: #fff;
+}
+
+.root :global(.bottomNav) {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  padding: 0 0.75rem calc(0.55rem + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(255, 249, 241, 0), rgba(255, 249, 241, 0.96) 40%);
+}
+
+.root :global(.bottomNavInner) {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.25rem;
+  width: min(100%, var(--shell-width));
+  margin: 0;
+  padding: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 1.35rem;
+  background: rgba(255, 252, 249, 0.92);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 12px 34px rgba(57, 40, 24, 0.12);
+}
+
+.root :global(.navButton) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.7rem 0.35rem;
+  border-radius: 1rem;
+  color: var(--text-muted);
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.root :global(.navButton.isActive) {
+  color: var(--text);
+  background: var(--bg-muted);
+}
+
+.root :global(.navIcon) {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.root :global(.emptyState) {
+  display: grid;
+  justify-items: center;
+  gap: 0.7rem;
+  padding: 4rem 1.25rem;
+  text-align: center;
+}
+
+.root :global(.emptyState p) {
+  max-width: 18rem;
+  color: var(--text-muted);
+}
+
+.root :global(.emptyStateIcon) {
+  width: 4rem;
+  height: 4rem;
+  background: var(--bg-muted);
+}
+
+.root :global(.sheetBackdrop) {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(31, 22, 13, 0.34);
+}
+
+.root :global(.sheet) {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 60;
+  width: min(100%, 30rem);
+  transform: translateX(-50%);
+  border-radius: 1.65rem 1.65rem 0 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: rgba(255, 250, 245, 0.98);
+  padding: 0.75rem 1rem calc(1.1rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -24px 60px rgba(31, 22, 13, 0.2);
+}
+
+.root :global(.sheetHandle) {
+  width: 3rem;
+  height: 0.3rem;
+  margin: 0 auto 1rem;
+  border-radius: 999px;
+  background: var(--bg-muted-strong);
+}
+
+.root :global(.sheetHeader) {
+  margin-bottom: 1rem;
+}
+
+.root :global(.sheetMetaGrid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.root :global(.sheetMetaGrid strong) {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.root :global(.difficultyGrid) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.root :global(.difficultyButton) {
+  border: 2px solid transparent;
+}
+
+.root :global(.difficultyButton.isSelected) {
+  border-color: rgba(38, 31, 23, 0.92);
+  box-shadow: 0 0 0 4px rgba(38, 31, 23, 0.08);
+}
+
+.root :global(.primaryButton) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  background: rgba(38, 31, 23, 0.94);
+  color: #fff;
+  font-weight: 700;
+}
+
+.root :global(.primaryButton:disabled) {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.root :global(.addButton) {
+  margin-top: 1.2rem;
+}
+
+.root :global(.mutedIcon) {
+  color: var(--text-muted);
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(43, 154, 102, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 0.7rem rgba(43, 154, 102, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(43, 154, 102, 0);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .root :global(.iconButton:hover),
+  .root :global(.segmentButton:hover),
+  .root :global(.ghostButton:hover),
+  .root :global(.folderRow:hover),
+  .root :global(.songCard:hover),
+  .root :global(.navButton:hover),
+  .root :global(.primaryButton:hover),
+  .root :global(.textButton:hover) {
+    transform: translateY(-1px);
+  }
+}
+
+@media (max-width: 640px) {
+  .root :global(.appShell) {
+    width: 100%;
+  }
+
+  .root :global(.topBarInner),
+  .root :global(.screenBody) {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+
+  .root :global(.screenBody) {
+    padding-bottom: 6.7rem;
+  }
+}

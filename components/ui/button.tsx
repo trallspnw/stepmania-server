@@ -3,15 +3,15 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-zinc-50 text-zinc-950 hover:bg-zinc-200",
-        secondary: "bg-zinc-900 text-zinc-100 hover:bg-zinc-800",
+        default: "bg-stone-950 text-stone-50 hover:bg-stone-800",
+        secondary: "bg-amber-100 text-amber-950 hover:bg-amber-200",
         outline:
-          "border border-zinc-800 bg-transparent text-zinc-100 hover:bg-zinc-900",
-        ghost: "text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50",
+          "border border-stone-300 bg-white/70 text-stone-900 hover:bg-stone-100",
+        ghost: "text-stone-700 hover:bg-stone-100 hover:text-stone-950",
       },
       size: {
         default: "h-10 px-4 py-2",

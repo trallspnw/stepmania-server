@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import styles from "@/components/dance-queue-app.module.css";
 import { BottomNav, Tab } from "@/components/bottom-nav";
 import { BrowseScreen } from "@/components/browse-screen";
 import { HistoryScreen } from "@/components/history-screen";
@@ -26,26 +27,28 @@ function AppFrame() {
   const { title, Icon } = tabMeta[activeTab];
 
   return (
-    <div className="appCanvas">
-      <div className="appShell">
-        <header className="topBar">
-          <div className="topBarInner">
-            <Icon className="sectionIcon accentIcon" />
-            <div>
-              <p className="topBarLabel">StepMania Server</p>
-              <h1>{title}</h1>
+    <div className={styles.root}>
+      <div className="appCanvas">
+        <div className="appShell">
+          <header className="topBar">
+            <div className="topBarInner">
+              <Icon className="sectionIcon accentIcon" />
+              <div>
+                <p className="topBarLabel">StepMania Server</p>
+                <h1>{title}</h1>
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <main className="screenBody">
-          {activeTab === "queue" ? <QueueScreen /> : null}
-          {activeTab === "browse" ? <BrowseScreen /> : null}
-          {activeTab === "history" ? <HistoryScreen /> : null}
-          {activeTab === "profile" ? <ProfileScreen /> : null}
-        </main>
+          <main className="screenBody">
+            {activeTab === "queue" ? <QueueScreen /> : null}
+            {activeTab === "browse" ? <BrowseScreen /> : null}
+            {activeTab === "history" ? <HistoryScreen /> : null}
+            {activeTab === "profile" ? <ProfileScreen /> : null}
+          </main>
 
-        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+          <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
       </div>
     </div>
   );
