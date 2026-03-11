@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "stepmania-server",
+  title: "Dance Queue",
   description: "StepMania song queue management service",
 };
 
