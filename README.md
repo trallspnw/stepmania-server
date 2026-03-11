@@ -121,3 +121,4 @@ Current admin scope:
 - Users tab supports role/status changes, password resets, and invite generation/revocation without full-page reloads.
 - Library and Queue tabs are placeholders.
 - Invite links support account creation with display name and password.
+- System tab supports machine token generation and revocation for trusted machine API access.

@@ -16,7 +16,7 @@ export default async function AdminPage() {
     redirect("/dashboard");
   }
 
-  const [users, pendingInvites] = await Promise.all([
+  const [users, pendingInvites, machineTokens] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "asc" },
     }),
@@ -30,6 +30,9 @@ export default async function AdminPage() {
       },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.machineToken.findMany({
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   return (
@@ -40,6 +43,13 @@ export default async function AdminPage() {
         roleIsAdmin: invite.roleIsAdmin,
         expiresAt: invite.expiresAt.toISOString(),
         createdAt: invite.createdAt.toISOString(),
+      }))}
+      initialMachineTokens={machineTokens.map((token) => ({
+        id: token.id,
+        name: token.name,
+        tokenPrefix: token.token.slice(0, 8),
+        lastSeen: token.lastSeen?.toISOString() ?? null,
+        createdAt: token.createdAt.toISOString(),
       }))}
       initialUsers={users.map((user) => ({
         id: user.id,

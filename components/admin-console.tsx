@@ -37,10 +37,19 @@ type PendingInvite = {
   createdAt: string;
 };
 
+type MachineTokenRecord = {
+  id: number;
+  name: string;
+  tokenPrefix: string;
+  lastSeen: string | null;
+  createdAt: string;
+};
+
 interface AdminConsoleProps {
   currentUserId: number;
   initialUsers: AdminUser[];
   initialInvites: PendingInvite[];
+  initialMachineTokens: MachineTokenRecord[];
 }
 
 function roleVariant(isAdmin: boolean) {
@@ -55,10 +64,12 @@ export function AdminConsole({
   currentUserId,
   initialUsers,
   initialInvites,
+  initialMachineTokens,
 }: AdminConsoleProps) {
   const [activeTab, setActiveTab] = useState("users");
   const [users, setUsers] = useState(initialUsers);
   const [invites, setInvites] = useState(initialInvites);
+  const [machineTokens, setMachineTokens] = useState(initialMachineTokens);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [inviteRole, setInviteRole] = useState<"player" | "admin">("player");
   const [generatedInvite, setGeneratedInvite] = useState<{
@@ -72,6 +83,18 @@ export function AdminConsole({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [machineTokenDialogOpen, setMachineTokenDialogOpen] = useState(false);
+  const [machineTokenName, setMachineTokenName] = useState("");
+  const [machineTokenError, setMachineTokenError] = useState<string | null>(null);
+  const [generatedMachineToken, setGeneratedMachineToken] = useState<{
+    id: number;
+    name: string;
+    token: string;
+    tokenPrefix: string;
+    lastSeen: string | null;
+    createdAt: string;
+  } | null>(null);
+  const [revokeTokenRecord, setRevokeTokenRecord] = useState<MachineTokenRecord | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const nextToastId = useRef(1);
@@ -282,6 +305,77 @@ export function AdminConsole({
     pushToast("Invite revoked");
   }
 
+  async function handleGenerateMachineToken() {
+    if (!machineTokenName.trim()) {
+      setMachineTokenError("Token name is required.");
+      return;
+    }
+
+    setMachineTokenError(null);
+    setLoadingId("generate-machine-token");
+
+    const response = await fetch("/api/admin/machine-tokens", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: machineTokenName }),
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      setMachineTokenError(
+        data.error === "name_required" ? "Token name is required." : "Failed to generate token.",
+      );
+      return;
+    }
+
+    const token = (await response.json()) as {
+      id: number;
+      name: string;
+      token: string;
+      tokenPrefix: string;
+      lastSeen: string | null;
+      createdAt: string;
+    };
+
+    setGeneratedMachineToken(token);
+    setMachineTokens((current) => [
+      {
+        id: token.id,
+        name: token.name,
+        tokenPrefix: token.tokenPrefix,
+        lastSeen: token.lastSeen,
+        createdAt: token.createdAt,
+      },
+      ...current,
+    ]);
+    pushToast(`Created machine token ${token.name}`);
+  }
+
+  async function revokeMachineToken(token: MachineTokenRecord) {
+    const previousTokens = machineTokens;
+    setMachineTokens((current) => current.filter((item) => item.id !== token.id));
+    setLoadingId(`revoke-machine-token-${token.id}`);
+
+    const response = await fetch(`/api/admin/machine-tokens/${token.id}`, {
+      method: "DELETE",
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      setMachineTokens(previousTokens);
+      pushToast("Failed to revoke machine token", "destructive");
+      return;
+    }
+
+    pushToast(`Revoked ${token.name}`);
+    setRevokeTokenRecord(null);
+  }
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(232,138,89,0.28),transparent_28%),radial-gradient(circle_at_top_right,rgba(111,154,214,0.2),transparent_22%),linear-gradient(180deg,#f5f0e8_0%,#ece8df_100%)] px-4 py-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -307,6 +401,7 @@ export function AdminConsole({
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="library">Library</TabsTrigger>
             <TabsTrigger value="queue">Queue</TabsTrigger>
+            <TabsTrigger value="system">System</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
@@ -494,6 +589,80 @@ export function AdminConsole({
               <p className="mt-2 text-sm text-stone-600">Coming soon.</p>
             </section>
           </TabsContent>
+
+          <TabsContent value="system">
+            <section className="space-y-4 rounded-2xl border border-stone-200 bg-white/85 p-5 shadow-lg shadow-stone-900/5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-stone-950">Machine Tokens</h2>
+                  <p className="text-sm text-stone-600">
+                    Bearer tokens for trusted machine API access.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => {
+                    setMachineTokenDialogOpen(true);
+                    setMachineTokenName("");
+                    setMachineTokenError(null);
+                    setGeneratedMachineToken(null);
+                  }}
+                  type="button"
+                >
+                  Add Token
+                </Button>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-stone-200">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Token</TableHead>
+                      <TableHead>Last Seen</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="min-w-[160px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {machineTokens.length === 0 ? (
+                      <TableRow>
+                        <TableCell className="text-stone-600" colSpan={5}>
+                          No machine tokens yet.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      machineTokens.map((token) => (
+                        <TableRow key={token.id}>
+                          <TableCell className="font-medium text-stone-900">{token.name}</TableCell>
+                          <TableCell className="font-mono text-stone-600">
+                            {token.tokenPrefix}
+                            {"\u2022".repeat(8)}
+                          </TableCell>
+                          <TableCell className="text-stone-600">
+                            {token.lastSeen ? formatRelativeTime(token.lastSeen) : "Never"}
+                          </TableCell>
+                          <TableCell className="text-stone-600">
+                            {formatRelativeTime(token.createdAt)}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              onClick={() => setRevokeTokenRecord(token)}
+                              size="sm"
+                              type="button"
+                              variant="outline"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Revoke
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -612,6 +781,117 @@ export function AdminConsole({
               type="button"
             >
               Reset Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        onOpenChange={(open) => {
+          setMachineTokenDialogOpen(open);
+          if (!open) {
+            setMachineTokenName("");
+            setMachineTokenError(null);
+            setGeneratedMachineToken(null);
+          }
+        }}
+        open={machineTokenDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Token</DialogTitle>
+            <DialogDescription>Create a new machine token.</DialogDescription>
+          </DialogHeader>
+
+          {generatedMachineToken ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="generated-machine-token">Token</Label>
+                <div className="flex gap-2">
+                  <Input id="generated-machine-token" readOnly value={generatedMachineToken.token} />
+                  <Button
+                    onClick={() => copyToClipboard(generatedMachineToken.token, "Machine token")}
+                    type="button"
+                    variant="outline"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-amber-700">
+                This token will not be shown again. Copy it now.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="machine-token-name">Token Name</Label>
+                <Input
+                  id="machine-token-name"
+                  onChange={(event) => setMachineTokenName(event.target.value)}
+                  placeholder="Arcade Cabinet"
+                  value={machineTokenName}
+                />
+              </div>
+              {machineTokenError ? <p className="text-sm text-red-600">{machineTokenError}</p> : null}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setMachineTokenDialogOpen(false);
+                setMachineTokenName("");
+                setMachineTokenError(null);
+                setGeneratedMachineToken(null);
+              }}
+              type="button"
+              variant="outline"
+            >
+              Close
+            </Button>
+            {!generatedMachineToken ? (
+              <Button
+                disabled={loadingId === "generate-machine-token"}
+                onClick={handleGenerateMachineToken}
+                type="button"
+              >
+                {loadingId === "generate-machine-token" ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Generating
+                  </>
+                ) : (
+                  "Generate"
+                )}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={() => setRevokeTokenRecord(null)} open={revokeTokenRecord !== null}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revoke Machine Token</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to revoke {revokeTokenRecord?.name}? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button onClick={() => setRevokeTokenRecord(null)} type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                !revokeTokenRecord ||
+                loadingId === `revoke-machine-token-${revokeTokenRecord?.id ?? ""}`
+              }
+              onClick={() => revokeTokenRecord && revokeMachineToken(revokeTokenRecord)}
+              type="button"
+            >
+              Revoke
             </Button>
           </DialogFooter>
         </DialogContent>
