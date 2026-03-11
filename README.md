@@ -120,4 +120,4 @@ Current admin scope:
 
 - Users tab supports role/status changes, password resets, and invite generation/revocation without full-page reloads.
 - Library and Queue tabs are placeholders.
-- Invite links resolve to a placeholder page until invite claim flow is implemented.
+- Invite links support account creation with display name and password.

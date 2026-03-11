@@ -1,26 +1,76 @@
+import { redirect } from "next/navigation";
+import { AuthShell } from "@/components/auth-shell";
+import { InviteClaimForm } from "@/components/invite-claim-form";
+import { getSessionUserRecord } from "@/lib/admin";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+
 interface InvitePageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
 }
 
-export default async function InvitePage({ params }: InvitePageProps) {
+function getInviteError(error?: string) {
+  switch (error) {
+    case "display_name_taken":
+      return "That display name is already taken.";
+    case "password_mismatch":
+      return "Password and confirmation must match.";
+    case "missing_fields":
+      return "Display name and password are required.";
+    case "password_too_short":
+      return "Password must be at least 8 characters.";
+    case "invalid_invite":
+      return "This invite is invalid, expired, or has already been claimed.";
+    default:
+      return undefined;
+  }
+}
+
+export default async function InvitePage({ params, searchParams }: InvitePageProps) {
+  const result = await getSessionUserRecord();
+
+  if (result) {
+    redirect("/dashboard");
+  }
+
   const { id } = await params;
+  const invite = await prisma.invite.findUnique({
+    where: { id },
+  });
+
+  const isInviteValid =
+    invite &&
+    invite.claimedAt === null &&
+    invite.claimedBy === null &&
+    invite.expiresAt > new Date();
+
+  if (!isInviteValid) {
+    return (
+      <AuthShell
+        description="This invite can no longer be used."
+        heroDescription="Invite links expire after 48 hours and become unavailable once claimed."
+        heroTitle="Invite Unavailable"
+        title="Invite expired"
+      >
+        <p className="text-sm text-stone-600">
+          Ask an administrator to generate a new invite link.
+        </p>
+      </AuthShell>
+    );
+  }
+
+  const paramsValue = await searchParams;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(232,138,89,0.28),transparent_28%),radial-gradient(circle_at_top_right,rgba(111,154,214,0.2),transparent_22%),linear-gradient(180deg,#f5f0e8_0%,#ece8df_100%)] px-4 py-10">
-      <section className="w-full max-w-lg rounded-2xl border border-stone-200 bg-white/85 p-6 shadow-2xl shadow-stone-900/10">
-        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-700/80">
-          StepMania Server
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-stone-950">
-          Invite Ready
-        </h1>
-        <p className="mt-3 text-sm text-stone-600">
-          Invite acceptance is not implemented yet in this sprint.
-        </p>
-        <p className="mt-4 text-sm text-stone-600">
-          Invite token: <span className="font-mono text-stone-900">{id}</span>
-        </p>
-      </section>
-    </main>
+    <AuthShell
+      description={`Create your ${invite.roleIsAdmin ? "admin" : "player"} account.`}
+      heroDescription="Accept your invite with a display name and password to join the server."
+      heroTitle="Accept Invite"
+      title="Create account"
+    >
+      <InviteClaimForm action={`/api/invite/${id}`} error={getInviteError(paramsValue.error)} />
+    </AuthShell>
   );
 }

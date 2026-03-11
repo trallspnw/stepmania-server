@@ -1,7 +1,21 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { signOut } from "next-auth/react";
+import { KeyRound, RefreshCw } from "lucide-react";
 import { LogOutIcon, MusicIcon, TrophyIcon } from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ToastMessage, ToastViewport } from "@/components/ui/toast";
 import { useApp } from "@/lib/app-context";
 import {
   formatRelativeTime,
@@ -14,6 +28,13 @@ import {
 export function ProfileScreen() {
   const { state, currentUser } = useApp();
   const currentPlayer = getPlayerById(state.currentPlayerId);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const nextToastId = useRef(1);
 
   if (!currentPlayer) {
     return (
@@ -30,6 +51,51 @@ export function ProfileScreen() {
   const myHistoryEntries = state.historyEntries.filter(
     (entry) => entry.playerId === state.currentPlayerId,
   );
+
+  function pushToast(title: string, variant: ToastMessage["variant"] = "default") {
+    const id = nextToastId.current;
+    nextToastId.current += 1;
+    setToasts((current) => [...current, { id, title, variant }]);
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 3000);
+  }
+
+  async function handlePasswordUpdate() {
+    if (password.length < 8) {
+      setPasswordError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setPasswordError("Passwords must match.");
+      return;
+    }
+
+    setPasswordError(null);
+    setIsSavingPassword(true);
+
+    const response = await fetch("/api/profile/password", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password }),
+    });
+
+    setIsSavingPassword(false);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      setPasswordError(data.error ?? "Password update failed.");
+      return;
+    }
+
+    setPasswordDialogOpen(false);
+    setPassword("");
+    setConfirmPassword("");
+    pushToast("Password updated");
+  }
 
   return (
     <div className="stack profileStack">
@@ -112,6 +178,24 @@ export function ProfileScreen() {
         )}
       </section>
 
+      <section className="card panelCard">
+        <header className="panelHeader">
+          <div className="panelTitle">
+            <KeyRound className="tinyIcon" />
+            <span>Security</span>
+          </div>
+        </header>
+        <div className="splitRow">
+          <div>
+            <h3>Password</h3>
+            <p className="muted">Update your account password.</p>
+          </div>
+          <Button onClick={() => setPasswordDialogOpen(true)} type="button" variant="outline">
+            Change Password
+          </Button>
+        </div>
+      </section>
+
       <button
         className="ghostButton logoutButton"
         onClick={() => signOut({ callbackUrl: "/login" })}
@@ -120,6 +204,68 @@ export function ProfileScreen() {
         <LogOutIcon className="tinyIcon" />
         <span>Sign Out</span>
       </button>
+
+      <Dialog onOpenChange={setPasswordDialogOpen} open={passwordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>Set a new password for your account.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="profile-password">New Password</Label>
+              <Input
+                id="profile-password"
+                minLength={8}
+                onChange={(event) => setPassword(event.target.value)}
+                type="password"
+                value={password}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="profile-confirm-password">Confirm Password</Label>
+              <Input
+                id="profile-confirm-password"
+                minLength={8}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                type="password"
+                value={confirmPassword}
+              />
+            </div>
+
+            {passwordError ? <p className="text-sm text-red-600">{passwordError}</p> : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setPasswordDialogOpen(false);
+                setPasswordError(null);
+                setPassword("");
+                setConfirmPassword("");
+              }}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button disabled={isSavingPassword} onClick={handlePasswordUpdate} type="button">
+              {isSavingPassword ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Saving
+                </>
+              ) : (
+                "Update Password"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ToastViewport toasts={toasts} />
     </div>
   );
 }

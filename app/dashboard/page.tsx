@@ -1,22 +1,21 @@
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { DanceQueueApp } from "@/components/dance-queue-app";
-import { authOptions } from "@/lib/auth";
+import { getSessionUserRecord } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
+  const result = await getSessionUserRecord();
 
-  if (!session?.user) {
+  if (!result) {
     redirect("/login");
   }
 
   return (
     <DanceQueueApp
       currentUser={{
-        displayName: session.user.displayName,
-        isAdmin: session.user.isAdmin,
+        displayName: result.user.displayName,
+        isAdmin: result.user.isAdmin,
       }}
     />
   );

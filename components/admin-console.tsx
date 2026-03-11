@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Copy, KeyRound, RefreshCw, Shield, ShieldOff, Trash2, UserX } from "lucide-react";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { Badge } from "@/components/ui/badge";
@@ -73,11 +75,60 @@ export function AdminConsole({
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const nextToastId = useRef(1);
+  const signingOutRef = useRef(false);
+  const router = useRouter();
 
   const sortedUsers = useMemo(
     () => [...users].sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [users],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkSessionState() {
+      const response = await fetch("/api/session-state", { cache: "no-store" });
+
+      if (!response.ok) {
+        if (!cancelled && !signingOutRef.current) {
+          signingOutRef.current = true;
+          await signOut({ callbackUrl: "/login" });
+        }
+        return;
+      }
+
+      const data = (await response.json()) as {
+        authenticated: boolean;
+        user?: {
+          isAdmin: boolean;
+          isActive: boolean;
+        };
+      };
+
+      if (!data.authenticated || !data.user?.isActive) {
+        if (!cancelled && !signingOutRef.current) {
+          signingOutRef.current = true;
+          await signOut({ callbackUrl: "/login" });
+        }
+        return;
+      }
+
+      if (!data.user.isAdmin && !cancelled) {
+        router.replace("/dashboard");
+        router.refresh();
+      }
+    }
+
+    void checkSessionState();
+    const interval = window.setInterval(() => {
+      void checkSessionState();
+    }, 30000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [router]);
 
   function pushToast(title: string, variant: ToastMessage["variant"] = "default") {
     const id = nextToastId.current;

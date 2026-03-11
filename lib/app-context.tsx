@@ -5,6 +5,7 @@ import {
   ReactNode,
   useContext,
   useReducer,
+  useState,
 } from "react";
 import {
   Difficulty,
@@ -73,6 +74,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
 interface AppContextValue {
   state: AppState;
   currentUser: CurrentUser;
+  setCurrentUser: (currentUser: CurrentUser) => void;
   addToQueue: (songId: string, difficulty: Difficulty) => void;
   removeFromQueue: (entryId: string) => void;
   signOut: () => void;
@@ -88,12 +90,14 @@ export function AppProvider({
   currentUser: CurrentUser;
 }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const [currentUserState, setCurrentUserState] = useState(currentUser);
 
   return (
     <AppContext.Provider
       value={{
         state,
-        currentUser,
+        currentUser: currentUserState,
+        setCurrentUser: setCurrentUserState,
         addToQueue: (songId, difficulty) =>
           dispatch({ type: "ADD_TO_QUEUE", payload: { songId, difficulty } }),
         removeFromQueue: (entryId) =>

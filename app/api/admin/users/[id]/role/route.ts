@@ -6,16 +6,16 @@ export async function PUT(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getAdminSession();
+  const result = await getAdminSession();
 
-  if (!session) {
+  if (!result) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
   const targetUserId = Number(id);
 
-  if (targetUserId === Number(session.user.id)) {
+  if (targetUserId === result.user.id) {
     return NextResponse.json({ error: "Cannot change your own role" }, { status: 400 });
   }
 

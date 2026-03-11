@@ -1,23 +1,13 @@
 import bcrypt from "bcrypt";
 import { NextResponse } from "next/server";
-import { getAdminSession } from "@/lib/admin";
+import { getSessionUserRecord } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const result = await getAdminSession();
+export async function PUT(request: Request) {
+  const result = await getSessionUserRecord();
 
   if (!result) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const { id } = await params;
-  const targetUserId = Number(id);
-
-  if (targetUserId === result.user.id) {
-    return NextResponse.json({ error: "Cannot reset your own password here" }, { status: 400 });
   }
 
   const body = await request.json().catch(() => ({}));
@@ -30,10 +20,10 @@ export async function PUT(
   const passwordHash = await bcrypt.hash(password, 12);
 
   await prisma.user.update({
-    where: { id: targetUserId },
+    where: { id: result.user.id },
     data: {
       passwordHash,
-      // Existing JWT sessions for the target user remain valid until expiry.
+      // Existing JWT sessions remain valid until expiry.
       // Forced logout is a known limitation of the current JWT strategy.
     },
   });

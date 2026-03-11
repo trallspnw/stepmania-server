@@ -1,19 +1,18 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { AdminConsole } from "@/components/admin-console";
-import { authOptions } from "@/lib/auth";
+import { getSessionUserRecord } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  const session = await getServerSession(authOptions);
+  const result = await getSessionUserRecord();
 
-  if (!session?.user) {
+  if (!result) {
     redirect("/login");
   }
 
-  if (!session.user.isAdmin) {
+  if (!result.user.isAdmin) {
     redirect("/dashboard");
   }
 
@@ -35,7 +34,7 @@ export default async function AdminPage() {
 
   return (
     <AdminConsole
-      currentUserId={Number(session.user.id)}
+      currentUserId={result.user.id}
       initialInvites={pendingInvites.map((invite) => ({
         id: invite.id,
         roleIsAdmin: invite.roleIsAdmin,

@@ -4,9 +4,9 @@ import { getAdminSession, getRequestBaseUrl } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
-  const session = await getAdminSession();
+  const result = await getAdminSession();
 
-  if (!session) {
+  if (!result) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   await prisma.invite.create({
     data: {
       id: token,
-      createdBy: Number(session.user.id),
+      createdBy: result.user.id,
       roleIsAdmin,
       expiresAt,
     },

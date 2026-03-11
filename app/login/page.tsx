@@ -1,8 +1,7 @@
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
 import { LoginForm } from "@/components/login-form";
-import { authOptions } from "@/lib/auth";
+import { getSessionUserRecord } from "@/lib/admin";
 import { hasAdminUser } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +24,9 @@ export default async function LoginPage({
     redirect("/setup");
   }
 
-  const session = await getServerSession(authOptions);
+  const result = await getSessionUserRecord();
 
-  if (session?.user) {
+  if (result) {
     redirect("/dashboard");
   }
 

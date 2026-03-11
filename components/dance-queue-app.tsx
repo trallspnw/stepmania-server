@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { signOut } from "next-auth/react";
 import styles from "@/components/dance-queue-app.module.css";
 import { BottomNav, Tab } from "@/components/bottom-nav";
 import { BrowseScreen } from "@/components/browse-screen";
@@ -33,7 +34,58 @@ const tabMeta = {
 function AppFrame() {
   const [activeTab, setActiveTab] = useState<Tab>("queue");
   const { title, Icon } = tabMeta[activeTab];
-  const { currentUser } = useApp();
+  const { currentUser, setCurrentUser } = useApp();
+  const signingOutRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkSessionState() {
+      const response = await fetch("/api/session-state", { cache: "no-store" });
+
+      if (!response.ok) {
+        if (!cancelled && !signingOutRef.current) {
+          signingOutRef.current = true;
+          await signOut({ callbackUrl: "/login" });
+        }
+        return;
+      }
+
+      const data = (await response.json()) as {
+        authenticated: boolean;
+        user?: {
+          displayName: string;
+          isAdmin: boolean;
+          isActive: boolean;
+        };
+      };
+
+      if (!data.authenticated || !data.user?.isActive) {
+        if (!cancelled && !signingOutRef.current) {
+          signingOutRef.current = true;
+          await signOut({ callbackUrl: "/login" });
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setCurrentUser({
+          displayName: data.user.displayName,
+          isAdmin: data.user.isAdmin,
+        });
+      }
+    }
+
+    void checkSessionState();
+    const interval = window.setInterval(() => {
+      void checkSessionState();
+    }, 30000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [setCurrentUser]);
 
   return (
     <div className={styles.root}>
