@@ -40,6 +40,13 @@ export async function GET(request: Request) {
   const songPath = (await getSetting(SETTING_KEYS.CURRENT_SONG_PATH))?.trim() ?? "";
 
   if (!songPath) {
+    console.info("[machine] game.song.current.read", {
+      machineTokenId: machineToken.id,
+      machineTokenName: machineToken.name,
+      status: 204,
+      hasSong: false,
+    });
+
     return new NextResponse(null, { status: 204 });
   }
 
@@ -73,6 +80,15 @@ export async function GET(request: Request) {
     activePlayer ? getUserHighScore(songPath, activePlayer.id) : Promise.resolve(null),
     getServerHighScore(songPath),
   ]);
+
+  console.info("[machine] game.song.current.read", {
+    machineTokenId: machineToken.id,
+    machineTokenName: machineToken.name,
+    status: 200,
+    songPath,
+    difficulty,
+    playerId: activePlayer?.id ?? null,
+  });
 
   return NextResponse.json({
     song: {
