@@ -43,11 +43,16 @@ export async function GET(request: Request) {
     console.info("[machine] game.song.current.read", {
       machineTokenId: machineToken.id,
       machineTokenName: machineToken.name,
-      status: 204,
+      status: 200,
       hasSong: false,
     });
 
-    return new NextResponse(null, { status: 204 });
+    return NextResponse.json({
+      song: null,
+      player: null,
+      user_highscore: null,
+      server_highscore: null,
+    });
   }
 
   const [difficulty, currentPlayerId] = await Promise.all([
