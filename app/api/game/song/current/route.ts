@@ -85,6 +85,7 @@ export async function GET(request: Request) {
     machineTokenId: machineToken.id,
     machineTokenName: machineToken.name,
     status: 200,
+    hasSong: true,
     songPath,
     difficulty,
     playerId: activePlayer?.id ?? null,
