@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { signOut } from "next-auth/react";
-import { KeyRound, RefreshCw } from "lucide-react";
+import { KeyRound, RefreshCw, Trash2 } from "lucide-react";
 import { LogOutIcon, MusicIcon, TrophyIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,8 @@ export function ProfileScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const nextToastId = useRef(1);
 
@@ -95,6 +97,24 @@ export function ProfileScreen() {
     setPassword("");
     setConfirmPassword("");
     pushToast("Password updated");
+  }
+
+  async function handleDeleteAccount() {
+    setIsDeletingAccount(true);
+
+    const response = await fetch("/api/profile/account", {
+      method: "DELETE",
+    });
+
+    setIsDeletingAccount(false);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      pushToast(data.error ?? "Failed to delete account", "destructive");
+      return;
+    }
+
+    await signOut({ callbackUrl: "/login" });
   }
 
   return (
@@ -196,6 +216,28 @@ export function ProfileScreen() {
         </div>
       </section>
 
+      <section className="card panelCard">
+        <header className="panelHeader">
+          <div className="panelTitle">
+            <Trash2 className="tinyIcon" />
+            <span>Delete Account</span>
+          </div>
+        </header>
+        <div className="splitRow">
+          <div>
+            <h3>Remove this account</h3>
+            <p className="muted">This permanently deletes your account and related records.</p>
+          </div>
+          <Button
+            className="bg-red-600 text-white hover:bg-red-700"
+            onClick={() => setDeleteDialogOpen(true)}
+            type="button"
+          >
+            Delete Account
+          </Button>
+        </div>
+      </section>
+
       <button
         className="ghostButton logoutButton"
         onClick={() => signOut({ callbackUrl: "/login" })}
@@ -259,6 +301,43 @@ export function ProfileScreen() {
                 </>
               ) : (
                 "Update Password"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={setDeleteDialogOpen} open={deleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Account</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete your account? This will also delete any related
+              queue items, play history, and other owned records.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button
+              onClick={() => setDeleteDialogOpen(false)}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={isDeletingAccount}
+              onClick={handleDeleteAccount}
+              type="button"
+            >
+              {isDeletingAccount ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting
+                </>
+              ) : (
+                "Delete Account"
               )}
             </Button>
           </DialogFooter>

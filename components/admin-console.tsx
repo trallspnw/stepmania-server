@@ -93,6 +93,7 @@ export function AdminConsole({
     createdAt: string;
   } | null>(null);
   const [passwordUser, setPasswordUser] = useState<AdminUser | null>(null);
+  const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -307,6 +308,41 @@ export function AdminConsole({
     setPasswordUser(null);
     setPassword("");
     setConfirmPassword("");
+  }
+
+  async function handleDeleteUser() {
+    if (!deleteUser) {
+      return;
+    }
+
+    const userToDelete = deleteUser;
+    const previousUsers = users;
+    const previousActiveUsers = activeUsers;
+    const previousPlayerId = currentSongSettings.playerId;
+
+    setUsers((current) => current.filter((user) => user.id !== userToDelete.id));
+    setActiveUsers((current) => current.filter((user) => Number(user.id) !== userToDelete.id));
+    if (currentSongSettings.playerId === String(userToDelete.id)) {
+      setCurrentSongSettings((current) => ({ ...current, playerId: "" }));
+    }
+    setLoadingId(`delete-${userToDelete.id}`);
+
+    const response = await fetch(`/api/admin/users/${userToDelete.id}`, {
+      method: "DELETE",
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      setUsers(previousUsers);
+      setActiveUsers(previousActiveUsers);
+      setCurrentSongSettings((current) => ({ ...current, playerId: previousPlayerId }));
+      pushToast("Failed to delete user", "destructive");
+      return;
+    }
+
+    pushToast(`Deleted ${userToDelete.displayName}`);
+    setDeleteUser(null);
   }
 
   async function handleGenerateInvite() {
@@ -572,6 +608,17 @@ export function AdminConsole({
                               >
                                 <KeyRound className="mr-2 h-4 w-4" />
                                 Reset Password
+                              </Button>
+                              <Button
+                                className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                                disabled={isSelf || loadingId === `delete-${user.id}`}
+                                onClick={() => setDeleteUser(user)}
+                                size="sm"
+                                type="button"
+                                variant="outline"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
                               </Button>
                             </div>
                           </TableCell>
@@ -960,6 +1007,39 @@ export function AdminConsole({
               type="button"
             >
               Reset Password
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={() => setDeleteUser(null)} open={deleteUser !== null}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {deleteUser?.displayName}? This will also delete
+              their play history, queue items, and other owned records.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button onClick={() => setDeleteUser(null)} type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={loadingId === `delete-${deleteUser?.id ?? ""}`}
+              onClick={handleDeleteUser}
+              type="button"
+            >
+              {loadingId === `delete-${deleteUser?.id ?? ""}` ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting
+                </>
+              ) : (
+                "Delete User"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

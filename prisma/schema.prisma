@@ -25,9 +25,9 @@ model User {
 model Invite {
   id          String   @id
   createdBy   Int      @map("created_by")
-  creator     User     @relation("CreatedInvites", fields: [createdBy], references: [id])
+  creator     User     @relation("CreatedInvites", fields: [createdBy], references: [id], onDelete: Cascade)
   claimedBy   Int?     @map("claimed_by")
-  claimer     User?    @relation("ClaimedInvites", fields: [claimedBy], references: [id])
+  claimer     User?    @relation("ClaimedInvites", fields: [claimedBy], references: [id], onDelete: Cascade)
   roleIsAdmin Boolean  @default(false) @map("role_is_admin")
   expiresAt   DateTime @map("expires_at") @db.Timestamptz(6)
   claimedAt   DateTime? @map("claimed_at") @db.Timestamptz(6)
@@ -41,7 +41,7 @@ model MachineToken {
   name      String
   token     String    @unique
   createdBy Int       @map("created_by")
-  creator   User      @relation("CreatedTokens", fields: [createdBy], references: [id])
+  creator   User      @relation("CreatedTokens", fields: [createdBy], references: [id], onDelete: Cascade)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   lastSeen  DateTime? @map("last_seen") @db.Timestamptz(6)
 
