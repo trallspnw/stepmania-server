@@ -8,6 +8,7 @@ import { Copy, KeyRound, RefreshCw, Shield, ShieldOff, Trash2, UserX } from "luc
 import { formatRelativeTime } from "@/lib/relative-time";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToastMessage, ToastViewport } from "@/components/ui/toast";
@@ -43,6 +45,17 @@ type MachineTokenRecord = {
   tokenPrefix: string;
   lastSeen: string | null;
   createdAt: string;
+};
+
+type ActiveUserOption = {
+  id: string;
+  displayName: string;
+};
+
+type CurrentSongSettings = {
+  songPath: string;
+  difficulty: string;
+  playerId: string;
 };
 
 interface AdminConsoleProps {
@@ -95,6 +108,13 @@ export function AdminConsole({
     createdAt: string;
   } | null>(null);
   const [revokeTokenRecord, setRevokeTokenRecord] = useState<MachineTokenRecord | null>(null);
+  const [activeUsers, setActiveUsers] = useState<ActiveUserOption[]>([]);
+  const [currentSongLoading, setCurrentSongLoading] = useState(true);
+  const [currentSongSettings, setCurrentSongSettings] = useState<CurrentSongSettings>({
+    songPath: "",
+    difficulty: "",
+    playerId: "",
+  });
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const nextToastId = useRef(1);
@@ -105,6 +125,15 @@ export function AdminConsole({
     () => [...users].sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [users],
   );
+
+  function pushToast(title: string, variant: ToastMessage["variant"] = "default") {
+    const id = nextToastId.current;
+    nextToastId.current += 1;
+    setToasts((current) => [...current, { id, title, variant }]);
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 3000);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -153,14 +182,47 @@ export function AdminConsole({
     };
   }, [router]);
 
-  function pushToast(title: string, variant: ToastMessage["variant"] = "default") {
-    const id = nextToastId.current;
-    nextToastId.current += 1;
-    setToasts((current) => [...current, { id, title, variant }]);
-    window.setTimeout(() => {
-      setToasts((current) => current.filter((toast) => toast.id !== id));
-    }, 3000);
-  }
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSystemData() {
+      const [settingsResponse, usersResponse] = await Promise.all([
+        fetch("/api/admin/settings/current-song", { cache: "no-store" }),
+        fetch("/api/admin/users/active", { cache: "no-store" }),
+      ]);
+
+      if (!settingsResponse.ok || !usersResponse.ok) {
+        if (!cancelled) {
+          setCurrentSongLoading(false);
+          pushToast("Failed to load system settings", "destructive");
+        }
+        return;
+      }
+
+      const settings = (await settingsResponse.json()) as {
+        songPath: string | null;
+        difficulty: string | null;
+        playerId: string | null;
+      };
+      const users = (await usersResponse.json()) as ActiveUserOption[];
+
+      if (!cancelled) {
+        setCurrentSongSettings({
+          songPath: settings.songPath ?? "",
+          difficulty: settings.difficulty ?? "",
+          playerId: settings.playerId ?? "",
+        });
+        setActiveUsers(users);
+        setCurrentSongLoading(false);
+      }
+    }
+
+    void loadSystemData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function copyToClipboard(value: string, label: string) {
     await navigator.clipboard.writeText(value);
@@ -374,6 +436,27 @@ export function AdminConsole({
 
     pushToast(`Revoked ${token.name}`);
     setRevokeTokenRecord(null);
+  }
+
+  async function saveCurrentSongSettings() {
+    setLoadingId("save-current-song");
+
+    const response = await fetch("/api/admin/settings/current-song", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(currentSongSettings),
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      pushToast("Failed to save settings", "destructive");
+      return;
+    }
+
+    pushToast("Current song updated");
   }
 
   return (
@@ -591,7 +674,8 @@ export function AdminConsole({
           </TabsContent>
 
           <TabsContent value="system">
-            <section className="space-y-4 rounded-2xl border border-stone-200 bg-white/85 p-5 shadow-lg shadow-stone-900/5">
+            <section className="space-y-6">
+              <section className="space-y-4 rounded-2xl border border-stone-200 bg-white/85 p-5 shadow-lg shadow-stone-900/5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-stone-950">Machine Tokens</h2>
@@ -661,6 +745,101 @@ export function AdminConsole({
                   </TableBody>
                 </Table>
               </div>
+              </section>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Current Song</CardTitle>
+                  <CardDescription>
+                    Configure the current song context shared with the game integration.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {currentSongLoading ? (
+                    <div className="space-y-4">
+                      <div className="h-11 animate-pulse rounded-md bg-stone-100" />
+                      <div className="h-11 animate-pulse rounded-md bg-stone-100" />
+                      <div className="h-11 animate-pulse rounded-md bg-stone-100" />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="current-song-path">Song Path</Label>
+                        <Input
+                          id="current-song-path"
+                          onChange={(event) =>
+                            setCurrentSongSettings((current) => ({
+                              ...current,
+                              songPath: event.target.value,
+                            }))
+                          }
+                          placeholder="Pack Name/Song Title"
+                          value={currentSongSettings.songPath}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="current-song-difficulty">Difficulty</Label>
+                        <Select
+                          id="current-song-difficulty"
+                          onChange={(event) =>
+                            setCurrentSongSettings((current) => ({
+                              ...current,
+                              difficulty: event.target.value,
+                            }))
+                          }
+                          value={currentSongSettings.difficulty}
+                        >
+                          <option value="">Select difficulty</option>
+                          <option value="Beginner">Beginner</option>
+                          <option value="Easy">Easy</option>
+                          <option value="Medium">Medium</option>
+                          <option value="Hard">Hard</option>
+                          <option value="Expert">Expert</option>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="current-song-player">Player</Label>
+                        <Select
+                          id="current-song-player"
+                          onChange={(event) =>
+                            setCurrentSongSettings((current) => ({
+                              ...current,
+                              playerId: event.target.value,
+                            }))
+                          }
+                          value={currentSongSettings.playerId}
+                        >
+                          <option value="">Select player</option>
+                          {activeUsers.map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {user.displayName}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Button
+                          disabled={loadingId === "save-current-song"}
+                          onClick={saveCurrentSongSettings}
+                          type="button"
+                        >
+                          {loadingId === "save-current-song" ? (
+                            <>
+                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                              Saving
+                            </>
+                          ) : (
+                            "Save"
+                          )}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             </section>
           </TabsContent>
         </Tabs>

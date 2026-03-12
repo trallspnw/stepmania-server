@@ -47,3 +47,12 @@ model MachineToken {
 
   @@map("machine_tokens")
 }
+
+model Setting {
+  key       String   @id
+  value     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("settings")
+}
