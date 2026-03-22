@@ -18,6 +18,7 @@ model User {
   createdInvites        Invite[] @relation("CreatedInvites")
   claimedInvites        Invite[] @relation("ClaimedInvites")
   createdTokens         MachineToken[] @relation("CreatedTokens")
+  playHistory           PlayHistory[] @relation("PlayHistory")
 
   @@map("users")
 }
@@ -55,4 +56,80 @@ model Setting {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("settings")
+}
+
+model Pack {
+  id              Int      @id @default(autoincrement())
+  folderName      String   @unique @map("folder_name")
+  sortIndex       String?  @map("sort_index")
+  titles          String
+  platforms       String?
+  regions         String?
+  earliestRelease String?  @map("earliest_release")
+  source          String?
+  isCustom        Boolean  @default(false) @map("is_custom")
+  isCommunity     Boolean  @default(false) @map("is_community")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  songs           Song[]
+
+  @@map("packs")
+}
+
+model Song {
+  id             Int           @id @default(autoincrement())
+  packId         Int           @map("pack_id")
+  pack           Pack          @relation(fields: [packId], references: [id], onDelete: Cascade)
+  title          String
+  titleTranslit  String?       @map("title_translit")
+  artist         String?
+  artistTranslit String?       @map("artist_translit")
+  genre          String?
+  credit         String?
+  displayBpm     String?       @map("display_bpm")
+  bpmMin         Float?        @map("bpm_min")
+  bpmMax         Float?        @map("bpm_max")
+  offset         Float?
+  sampleStart    Float?        @map("sample_start")
+  sampleLength   Float?        @map("sample_length")
+  filePath       String        @unique @map("file_path")
+  simfileType    String        @map("simfile_type")
+  checksum       String
+  available      Boolean       @default(true)
+  ingestFlags    String?       @map("ingest_flags")
+  lastScanned    DateTime?     @map("last_scanned") @db.Timestamptz(6)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  charts         Chart[]
+  playHistory    PlayHistory[]
+
+  @@map("songs")
+}
+
+model Chart {
+  id             Int      @id @default(autoincrement())
+  songId         Int      @map("song_id")
+  song           Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  gameMode       String   @map("game_mode")
+  difficultySlot String   @map("difficulty_slot")
+  meter          Int
+  author         String?
+  isPrimary      Boolean  @default(false) @map("is_primary")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([songId, gameMode, difficultySlot])
+  @@map("charts")
+}
+
+model PlayHistory {
+  id       Int      @id @default(autoincrement())
+  songId   Int      @map("song_id")
+  song     Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  userId   Int      @map("user_id")
+  user     User     @relation("PlayHistory", fields: [userId], references: [id], onDelete: Cascade)
+  score    Decimal? @db.Decimal(5, 2)
+  grade    String?
+  playedAt DateTime @default(now()) @map("played_at") @db.Timestamptz(6)
+
+  @@map("play_history")
 }
