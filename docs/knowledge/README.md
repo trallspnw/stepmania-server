@@ -13,6 +13,7 @@ Suggested contents:
 Current notes:
 
 - [`migration-workflow.md`](./migration-workflow.md): how Prisma migrations are created, committed, and applied locally and in deployment.
+- [`metadata.md`](./metadata.md): current `pack.ini` metadata schema, field meanings, and notes on future song metadata.
 
 Related:
 

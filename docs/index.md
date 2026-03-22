@@ -19,6 +19,7 @@ Everything in `docs/` should either be linked here directly or be reachable from
 - General project knowledge: [`knowledge/README.md`](./knowledge/README.md)
 - Migration workflow: [`knowledge/migration-workflow.md`](./knowledge/migration-workflow.md)
 - Current app implementation: [`../app/`](../app/)
+- Metadata reference: [`knowledge/metadata.md`](./knowledge/metadata.md)
 
 ## Discoverability Rule
 
