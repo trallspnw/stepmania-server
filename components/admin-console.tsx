@@ -1096,7 +1096,6 @@ export function AdminConsole({
                                     <div className="font-medium text-stone-900">{displayTitle}</div>
                                     <div className="text-xs text-stone-500">{pack.folderName}</div>
                                     <div className="flex flex-wrap gap-2">
-                                      {pack.sortIndex ? <Badge variant="gray">{pack.sortIndex}</Badge> : null}
                                       {pack.isCommunity ? <Badge variant="blue">Community</Badge> : null}
                                       {pack.isCustom ? <Badge variant="green">Custom</Badge> : null}
                                       {alternateTitles.length > 0 ? (
@@ -1106,13 +1105,13 @@ export function AdminConsole({
                                   </div>
                                 </TableCell>
                                 <TableCell className="text-stone-600">
-                                  {pack.platforms ?? "Unknown"}
+                                  {pack.platforms ?? "-"}
                                 </TableCell>
                                 <TableCell className="text-stone-600">
-                                  {pack.regions ?? "Unknown"}
+                                  {pack.regions ?? "-"}
                                 </TableCell>
                                 <TableCell className="text-stone-600">
-                                  {pack.earliestRelease ?? "Unknown"}
+                                  {pack.earliestRelease ?? "-"}
                                 </TableCell>
                                 <TableCell className="text-stone-600">{pack.songCount}</TableCell>
                                 <TableCell className="max-w-[260px] text-stone-600">
@@ -1128,7 +1127,7 @@ export function AdminConsole({
                                   ) : pack.source ? (
                                     <span className="break-all">{pack.source}</span>
                                   ) : (
-                                    "Unknown"
+                                    "-"
                                   )}
                                 </TableCell>
                                 <TableCell className="text-stone-600">
@@ -1250,18 +1249,18 @@ export function AdminConsole({
                             librarySongs.songs.map((song) => (
                               <TableRow key={song.id}>
                                 <TableCell className="font-medium text-stone-900">{song.title}</TableCell>
-                                <TableCell className="text-stone-600">{song.artist ?? "Unknown"}</TableCell>
+                                <TableCell className="text-stone-600">{song.artist ?? "-"}</TableCell>
                                 <TableCell className="text-stone-600 uppercase">{song.simfileType}</TableCell>
                                 <TableCell className="text-stone-600">
                                   {song.bpmMin && song.bpmMax
                                     ? song.bpmMin === song.bpmMax
                                       ? `${song.bpmMin}`
                                       : `${song.bpmMin}-${song.bpmMax}`
-                                    : "Unknown"}
+                                    : "-"}
                                 </TableCell>
                                 <TableCell className="text-stone-600">{song.chartCount}</TableCell>
                                 <TableCell className="max-w-[240px] text-stone-600">
-                                  {song.ingestFlags ?? "None"}
+                                  {song.ingestFlags ?? "-"}
                                 </TableCell>
                                 <TableCell>
                                   <Badge variant={song.available ? "green" : "red"}>
