@@ -765,6 +765,24 @@
   background: var(--bg-muted-strong);
 }
 
+.root :global(.sheetBannerFrame) {
+  margin-bottom: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.3)),
+    var(--bg-muted);
+  box-shadow: 0 12px 30px rgba(31, 22, 13, 0.08);
+}
+
+.root :global(.sheetBannerImage) {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  object-fit: cover;
+}
+
 .root :global(.sheetHeader) {
   margin-bottom: 1rem;
 }

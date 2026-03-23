@@ -82,6 +82,7 @@ export function BrowseScreen() {
   const [selectedSong, setSelectedSong] = useState<BrowseSongRecord | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<BrowseDifficulty | null>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
+  const [selectedSongBannerSrc, setSelectedSongBannerSrc] = useState<string | null>(null);
   const [browseMode, setBrowseMode] = useState<BrowseMode>("search");
   const [folderView, setFolderView] = useState<FolderView>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -120,6 +121,73 @@ export function BrowseScreen() {
     }, 1000);
     return () => window.clearTimeout(timeout);
   }, [justAdded]);
+
+  useEffect(() => {
+    if (!selectedSong) {
+      setSelectedSongBannerSrc((current) => {
+        if (current) {
+          URL.revokeObjectURL(current);
+        }
+        return null;
+      });
+      return;
+    }
+
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    const selectedSongId = selectedSong.id;
+
+    async function loadBanner() {
+      try {
+        const response = await fetch(`/api/library/browse/songs/${selectedSongId}/banner`, {
+          credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+          if (!cancelled) {
+            setSelectedSongBannerSrc((current) => {
+              if (current) {
+                URL.revokeObjectURL(current);
+              }
+              return null;
+            });
+          }
+          return;
+        }
+
+        const bannerBlob = await response.blob();
+        objectUrl = URL.createObjectURL(bannerBlob);
+
+        if (!cancelled) {
+          setSelectedSongBannerSrc((current) => {
+            if (current) {
+              URL.revokeObjectURL(current);
+            }
+            return objectUrl;
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setSelectedSongBannerSrc((current) => {
+            if (current) {
+              URL.revokeObjectURL(current);
+            }
+            return null;
+          });
+        }
+      }
+    }
+
+    void loadBanner();
+
+    return () => {
+      cancelled = true;
+
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [selectedSong]);
 
   const hasActiveFilters =
     filters.minDifficulty !== defaultFilters.minDifficulty ||
@@ -753,6 +821,15 @@ export function BrowseScreen() {
           />
           <section className="sheet">
             <div className="sheetHandle" />
+            {selectedSongBannerSrc ? (
+              <div className="sheetBannerFrame">
+                <img
+                  alt={`${selectedSong.title} banner`}
+                  className="sheetBannerImage"
+                  src={selectedSongBannerSrc}
+                />
+              </div>
+            ) : null}
             <header className="sheetHeader">
               <div>
                 <h2>{selectedSong.title}</h2>

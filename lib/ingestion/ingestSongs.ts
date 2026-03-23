@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
+import { chooseSimfile } from "@/lib/song-files";
 import { parseSimfile } from "./parseSimfile";
 
 export type SongIngestResult = {
@@ -55,19 +56,6 @@ function parseBpms(rawValue: string | undefined) {
 function normalizeDifficultySlot(slot: string) {
   const trimmed = slot.trim();
   return trimmed.replace(/^\w/, (character) => character.toUpperCase());
-}
-
-function chooseSimfile(songFolderPath: string) {
-  const entries = fs.readdirSync(songFolderPath).sort((a, b) => a.localeCompare(b));
-  const sscFiles = entries.filter((entry) => entry.toLowerCase().endsWith(".ssc"));
-  const smFiles = entries.filter((entry) => entry.toLowerCase().endsWith(".sm"));
-  const selected = sscFiles[0] ?? smFiles[0] ?? null;
-
-  return {
-    selectedPath: selected ? path.join(songFolderPath, selected) : null,
-    hasSsc: sscFiles.length > 0,
-    hasSm: smFiles.length > 0,
-  };
 }
 
 async function yieldToEventLoop() {
