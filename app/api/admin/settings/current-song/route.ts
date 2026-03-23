@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin";
+import { normalizeLibraryGameMode } from "@/lib/library-mode";
 import { getSetting, setSettings } from "@/lib/settings";
 import { SETTING_KEYS } from "@/lib/settingKeys";
 
@@ -12,16 +13,18 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const [songPath, difficulty, playerId] = await Promise.all([
+  const [songPath, difficulty, playerId, libraryGameMode] = await Promise.all([
     getSetting(SETTING_KEYS.CURRENT_SONG_PATH),
     getSetting(SETTING_KEYS.CURRENT_SONG_DIFFICULTY),
     getSetting(SETTING_KEYS.CURRENT_PLAYER_ID),
+    getSetting(SETTING_KEYS.LIBRARY_GAME_MODE),
   ]);
 
   return NextResponse.json({
     songPath,
     difficulty,
     playerId,
+    libraryGameMode: normalizeLibraryGameMode(libraryGameMode),
   });
 }
 
@@ -36,6 +39,9 @@ export async function PUT(request: Request) {
   const songPath = typeof body.songPath === "string" ? body.songPath.trim() : "";
   const difficulty = typeof body.difficulty === "string" ? body.difficulty : "";
   const playerId = typeof body.playerId === "string" ? body.playerId : "";
+  const libraryGameMode = normalizeLibraryGameMode(
+    typeof body.libraryGameMode === "string" ? body.libraryGameMode : null,
+  );
 
   if (difficulty && !validDifficulties.has(difficulty)) {
     return NextResponse.json({ error: "Invalid difficulty" }, { status: 400 });
@@ -53,6 +59,10 @@ export async function PUT(request: Request) {
     {
       key: SETTING_KEYS.CURRENT_PLAYER_ID,
       value: playerId || null,
+    },
+    {
+      key: SETTING_KEYS.LIBRARY_GAME_MODE,
+      value: libraryGameMode,
     },
   ]);
 

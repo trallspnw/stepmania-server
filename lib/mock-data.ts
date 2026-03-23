@@ -39,6 +39,10 @@ export interface QueueEntry {
   id: string;
   playerId: string;
   songId: string;
+  songSnapshot?: {
+    title: string;
+    artist: string;
+  };
   selectedDifficulty: Difficulty;
   status: QueueStatus;
   addedAt: Date;

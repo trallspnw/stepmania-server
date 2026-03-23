@@ -26,8 +26,16 @@ interface CurrentUser {
   isAdmin: boolean;
 }
 
+interface QueueSongSnapshot {
+  title: string;
+  artist: string;
+}
+
 type AppAction =
-  | { type: "ADD_TO_QUEUE"; payload: { songId: string; difficulty: Difficulty } }
+  | {
+      type: "ADD_TO_QUEUE";
+      payload: { songId: string; difficulty: Difficulty; songSnapshot?: QueueSongSnapshot };
+    }
   | { type: "REMOVE_FROM_QUEUE"; payload: { entryId: string } }
   | { type: "SIGN_OUT" };
 
@@ -48,6 +56,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
             id: `queue-${Date.now()}`,
             playerId: state.currentPlayerId,
             songId: action.payload.songId,
+            songSnapshot: action.payload.songSnapshot,
             selectedDifficulty: action.payload.difficulty,
             status: "pending",
             addedAt: new Date(),
@@ -75,7 +84,7 @@ interface AppContextValue {
   state: AppState;
   currentUser: CurrentUser;
   setCurrentUser: (currentUser: CurrentUser) => void;
-  addToQueue: (songId: string, difficulty: Difficulty) => void;
+  addToQueue: (songId: string, difficulty: Difficulty, songSnapshot?: QueueSongSnapshot) => void;
   removeFromQueue: (entryId: string) => void;
   signOut: () => void;
 }
@@ -98,8 +107,8 @@ export function AppProvider({
         state,
         currentUser: currentUserState,
         setCurrentUser: setCurrentUserState,
-        addToQueue: (songId, difficulty) =>
-          dispatch({ type: "ADD_TO_QUEUE", payload: { songId, difficulty } }),
+        addToQueue: (songId, difficulty, songSnapshot) =>
+          dispatch({ type: "ADD_TO_QUEUE", payload: { songId, difficulty, songSnapshot } }),
         removeFromQueue: (entryId) =>
           dispatch({ type: "REMOVE_FROM_QUEUE", payload: { entryId } }),
         signOut: () => dispatch({ type: "SIGN_OUT" }),

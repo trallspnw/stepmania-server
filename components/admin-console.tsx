@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Copy, KeyRound, RefreshCw, Shield, ShieldOff, Trash2, UserX } from "lucide-react";
+import { LIBRARY_GAME_MODE_OPTIONS } from "@/lib/library-mode";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -56,6 +57,7 @@ type CurrentSongSettings = {
   songPath: string;
   difficulty: string;
   playerId: string;
+  libraryGameMode: string;
 };
 
 type PackIngestResult = {
@@ -215,6 +217,7 @@ export function AdminConsole({
     songPath: "",
     difficulty: "",
     playerId: "",
+    libraryGameMode: "dance-single",
   });
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -416,6 +419,7 @@ export function AdminConsole({
         songPath: string | null;
         difficulty: string | null;
         playerId: string | null;
+        libraryGameMode: string | null;
       };
       const users = (await usersResponse.json()) as ActiveUserOption[];
 
@@ -424,6 +428,7 @@ export function AdminConsole({
           songPath: settings.songPath ?? "",
           difficulty: settings.difficulty ?? "",
           playerId: settings.playerId ?? "",
+          libraryGameMode: settings.libraryGameMode ?? "dance-single",
         });
         setActiveUsers(users);
         setCurrentSongLoading(false);
@@ -1446,6 +1451,26 @@ export function AdminConsole({
                           <option value="Hard">Hard</option>
                           <option value="Expert">Expert</option>
                           <option value="Custom">Custom</option>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="library-game-mode">Library Game Mode</Label>
+                        <Select
+                          id="library-game-mode"
+                          onChange={(event) =>
+                            setCurrentSongSettings((current) => ({
+                              ...current,
+                              libraryGameMode: event.target.value,
+                            }))
+                          }
+                          value={currentSongSettings.libraryGameMode}
+                        >
+                          {LIBRARY_GAME_MODE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
                         </Select>
                       </div>
 

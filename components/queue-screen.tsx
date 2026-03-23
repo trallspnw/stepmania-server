@@ -29,7 +29,12 @@ export function QueueScreen() {
         const song = getSongById(entry.songId);
         const player = getPlayerById(entry.playerId);
 
-        if (!song || !player) return null;
+        if (!player) return null;
+
+        const songTitle = song?.title ?? entry.songSnapshot?.title;
+        const songArtist = song?.artist ?? entry.songSnapshot?.artist;
+
+        if (!songTitle || !songArtist) return null;
 
         const isPlaying = entry.status === "playing";
         const isOwn = entry.playerId === state.currentPlayerId;
@@ -45,8 +50,8 @@ export function QueueScreen() {
             </div>
             <div className="queueContent">
               {isPlaying ? <span className="eyebrowPill">Now Playing</span> : null}
-              <h3>{song.title}</h3>
-              <p className="muted">{song.artist}</p>
+              <h3>{songTitle}</h3>
+              <p className="muted">{songArtist}</p>
               <div className="metaRow">
                 <span
                   className={`pill ${getDifficultyTone(
