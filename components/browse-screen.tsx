@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeftIcon,
   CheckIcon,
@@ -14,10 +14,13 @@ import {
 import { useApp } from "@/lib/app-context";
 import {
   Difficulty,
+  getDifficultyGradient,
+  getPackCardMeta,
   getDifficultyRange,
   getDifficultyTone,
   getUniqueArtists,
   getUniquePacks,
+  hasCustomDifficulty,
   songs,
   Song,
 } from "@/lib/mock-data";
@@ -293,22 +296,35 @@ export function BrowseScreen() {
           ) : (
             filteredSongs.map((song) => {
               const { min, max } = getDifficultyRange(song);
+              const hasCustom = hasCustomDifficulty(song);
               return (
                 <button
                   className="card songCard"
                   key={song.id}
                   onClick={() => openSong(song)}
+                  style={
+                    {
+                      "--song-difficulty-gradient": getDifficultyGradient(song),
+                    } as CSSProperties
+                  }
                   type="button"
                 >
                   <div className="songCardCopy">
                     <h3>{song.title}</h3>
                     <p>{song.artist}</p>
-                    <div className="metaRow wrap muted">
-                      <span>{song.pack}</span>
+                    <div className="metaRow wrap songMetaRow muted">
+                      <span className="songPackLabel">{song.pack}</span>
                       <span>{song.bpm} BPM</span>
+                      <span>{song.difficulties.length} charts</span>
+                      {hasCustom ? <span className="songMetaBadge">Custom</span> : null}
                     </div>
                   </div>
-                  <span className="softPill">{min === max ? min : `${min}-${max}`}</span>
+                  <div className="songCardAside">
+                    <span className="softPill songRangePill">
+                      {min === max ? min : `${min}-${max}`}
+                    </span>
+                    <span className="songBpmChip">{song.bpm} BPM</span>
+                  </div>
                 </button>
               );
             })
@@ -321,6 +337,7 @@ export function BrowseScreen() {
               browseMode === "packs" ? song.pack === item : song.artist === item,
             ).length;
             const Icon = browseMode === "packs" ? FolderIcon : UserIcon;
+            const packMeta = browseMode === "packs" ? getPackCardMeta(item) : null;
 
             return (
               <button
@@ -338,8 +355,17 @@ export function BrowseScreen() {
                   <Icon className="tinyIcon" />
                 </div>
                 <div className="folderCopy">
-                  <h3>{item}</h3>
-                  <p>{count} songs</p>
+                  <h3>{browseMode === "packs" ? packMeta?.title ?? item : item}</h3>
+                  {browseMode === "packs" ? (
+                    <div className="metaRow wrap muted">
+                      <span>{packMeta?.songCount ?? count} songs</span>
+                      <span>{packMeta?.platformLabel ?? "-"}</span>
+                      <span>{packMeta?.releaseYear ?? "-"}</span>
+                      <span className="regionEmojiRow">{packMeta?.regionEmojis ?? "-"}</span>
+                    </div>
+                  ) : (
+                    <p>{count} songs</p>
+                  )}
                 </div>
                 <ChevronRightIcon className="tinyIcon mutedIcon" />
               </button>

@@ -236,6 +236,10 @@
   flex-wrap: wrap;
 }
 
+.root :global(.regionEmojiRow) {
+  letter-spacing: 0.08em;
+}
+
 .root :global(.eyebrowPill),
 .root :global(.pill),
 .root :global(.softPill) {
@@ -498,6 +502,70 @@
 
 .root :global(.songCard) {
   justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.root :global(.songCard::before) {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0.32rem;
+  border-radius: 1rem 0 0 1rem;
+  background: var(--song-difficulty-gradient, var(--bg-muted-strong));
+}
+
+.root :global(.songCard p) {
+  margin-top: 0.15rem;
+  font-size: 0.92rem;
+}
+
+.root :global(.songMetaRow) {
+  margin-top: 0.45rem;
+  font-size: 0.78rem;
+}
+
+.root :global(.songPackLabel) {
+  font-weight: 600;
+}
+
+.root :global(.songMetaBadge) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.18rem 0.48rem;
+  border-radius: 999px;
+  background: rgba(63, 70, 80, 0.12);
+  color: #3f4650;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.root :global(.songCardAside) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+  min-width: 5.1rem;
+}
+
+.root :global(.songRangePill) {
+  min-width: 4.5rem;
+  padding: 0.42rem 0.72rem;
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1;
+  background: rgba(38, 31, 23, 0.08);
+}
+
+.root :global(.songBpmChip) {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .root :global(.appCanvas button.songCard),

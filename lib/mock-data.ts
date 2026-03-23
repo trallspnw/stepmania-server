@@ -28,6 +28,13 @@ export interface Song {
   difficulties: Difficulty[];
 }
 
+export interface PackMetadata {
+  titles: string[];
+  platforms: string[];
+  regions: string[];
+  earliestRelease: string | null;
+}
+
 export interface QueueEntry {
   id: string;
   playerId: string;
@@ -296,6 +303,69 @@ export const songs: Song[] = [
   },
 ];
 
+export const packMetadata: Record<string, PackMetadata> = {
+  DDRMAX: {
+    titles: ["DDRMAX Dance Dance Revolution 6thMix"],
+    platforms: ["Arcade", "PlayStation 2"],
+    regions: ["Japan", "North America", "Europe"],
+    earliestRelease: "2001-10-19",
+  },
+  "In The Groove 2": {
+    titles: ["In The Groove 2"],
+    platforms: ["Arcade", "PlayStation 2"],
+    regions: ["North America"],
+    earliestRelease: "2005-06-18",
+  },
+  "DDR 3rdMIX": {
+    titles: ["Dance Dance Revolution 3rdMix"],
+    platforms: ["Arcade", "PlayStation"],
+    regions: ["Japan", "Asia", "North America"],
+    earliestRelease: "1999-10-30",
+  },
+  "DDR Extreme": {
+    titles: ["Dance Dance Revolution Extreme"],
+    platforms: ["Arcade", "PlayStation 2"],
+    regions: ["Japan", "Asia", "North America", "Europe"],
+    earliestRelease: "2002-12-25",
+  },
+  "DDR SuperNOVA": {
+    titles: ["Dance Dance Revolution SuperNova"],
+    platforms: ["Arcade", "PlayStation 2"],
+    regions: ["Europe", "North America", "Japan", "Asia", "South America"],
+    earliestRelease: "2006-04-28",
+  },
+  "DDR 4thMIX": {
+    titles: ["Dance Dance Revolution 4thMix"],
+    platforms: ["Arcade", "PlayStation"],
+    regions: ["Japan", "Korea", "Asia", "Europe"],
+    earliestRelease: "2000-08-24",
+  },
+  "Eurobeat Pack": {
+    titles: ["Eurobeat Pack"],
+    platforms: ["Custom"],
+    regions: [],
+    earliestRelease: null,
+  },
+  "Novelty Pack": {
+    titles: ["Novelty Pack"],
+    platforms: ["Custom"],
+    regions: [],
+    earliestRelease: null,
+  },
+  "EDM Classics": {
+    titles: ["EDM Classics"],
+    platforms: ["Custom"],
+    regions: [],
+    earliestRelease: null,
+  },
+  "J-Core Collection": {
+    titles: ["J-Core Collection"],
+    platforms: ["Custom"],
+    regions: [],
+    earliestRelease: null,
+  },
+};
+
 export const initialQueueEntries: QueueEntry[] = [
   {
     id: "queue-1",
@@ -419,12 +489,100 @@ export function getDifficultyRange(song: Song) {
   return { min: Math.min(...levels), max: Math.max(...levels) };
 }
 
+export function getHighestDifficulty(song: Song) {
+  return song.difficulties.reduce((highest, current) =>
+    current.level > highest.level ? current : highest,
+  );
+}
+
+export function hasCustomDifficulty(song: Song) {
+  return song.difficulties.some((difficulty) => difficulty.slot === "Custom");
+}
+
 export function getUniquePacks() {
   return [...new Set(songs.map((song) => song.pack))].sort();
 }
 
 export function getUniqueArtists() {
   return [...new Set(songs.map((song) => song.artist))].sort();
+}
+
+function getPreferredPlatform(platforms: string[]) {
+  if (platforms.includes("Arcade")) {
+    return "Arcade";
+  }
+
+  if (
+    platforms.some((platform) =>
+      ["Game Boy Color", "Nintendo 64", "GameCube", "Wii"].includes(platform),
+    )
+  ) {
+    return "Nintendo Systems";
+  }
+
+  if (platforms.some((platform) => ["PlayStation", "PlayStation 2"].includes(platform))) {
+    return "PlayStation Systems";
+  }
+
+  return platforms[0] ?? "-";
+}
+
+function collapseRegions(regions: string[]) {
+  const regionSet = new Set(regions);
+
+  if (regionSet.has("Asia")) {
+    regionSet.delete("Japan");
+    regionSet.delete("Korea");
+  }
+
+  return [...regionSet];
+}
+
+function getRegionEmoji(region: string) {
+  switch (region) {
+    case "Japan":
+      return "🇯🇵";
+    case "Korea":
+      return "🇰🇷";
+    case "Asia":
+      return "🌏";
+    case "Europe":
+      return "🇪🇺";
+    case "North America":
+      return "🇺🇸";
+    case "South America":
+      return "🌎";
+    case "Oceania":
+      return "🌊";
+    default:
+      return "";
+  }
+}
+
+export function getPackCardMeta(packName: string) {
+  const metadata = packMetadata[packName];
+  const songCount = songs.filter((song) => song.pack === packName).length;
+
+  if (!metadata) {
+    return {
+      title: packName,
+      songCount,
+      platformLabel: "",
+      releaseYear: "",
+      regionEmojis: "",
+    };
+  }
+
+  const collapsedRegions = collapseRegions(metadata.regions);
+  const regionEmojis = collapsedRegions.map(getRegionEmoji).filter(Boolean).join(" ");
+
+  return {
+    title: metadata.titles[0] ?? packName,
+    songCount,
+    platformLabel: getPreferredPlatform(metadata.platforms),
+    releaseYear: metadata.earliestRelease ? metadata.earliestRelease.slice(0, 4) : "",
+    regionEmojis: regionEmojis || "",
+  };
 }
 
 export function getDifficultyTone(slot: DifficultySlot) {
@@ -442,6 +600,42 @@ export function getDifficultyTone(slot: DifficultySlot) {
     case "Custom":
       return "difficulty-custom";
   }
+}
+
+export function getDifficultyColorVar(slot: DifficultySlot) {
+  switch (slot) {
+    case "Beginner":
+      return "var(--difficulty-beginner)";
+    case "Easy":
+      return "var(--difficulty-easy)";
+    case "Medium":
+      return "var(--difficulty-medium)";
+    case "Hard":
+      return "var(--difficulty-hard)";
+    case "Expert":
+      return "var(--difficulty-expert)";
+    case "Custom":
+      return "var(--difficulty-custom)";
+  }
+}
+
+export function getDifficultyGradient(song: Song) {
+  const sorted = [...song.difficulties].sort((left, right) => left.level - right.level);
+  const low = sorted[0];
+  const high = sorted[sorted.length - 1];
+
+  if (!low || !high) {
+    return "var(--bg-muted-strong)";
+  }
+
+  const lowColor = getDifficultyColorVar(low.slot);
+  const highColor = getDifficultyColorVar(high.slot);
+
+  if (low.slot === high.slot) {
+    return lowColor;
+  }
+
+  return `linear-gradient(180deg, ${lowColor} 0%, ${highColor} 100%)`;
 }
 
 export function getGradeTone(grade: Grade) {

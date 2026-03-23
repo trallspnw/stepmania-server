@@ -65,6 +65,58 @@ Source=https://en.wikipedia.org/wiki/List_of_Dance_Dance_Revolution_video_games
 - Ordering is also useful for `Platforms` and `Regions`; preserve intentional order when editing.
 - INI comments may be used sparingly to capture uncertainty or release-specific notes.
 
+### Pack Card Mapping
+
+For compact pack-list UX, the raw metadata may be reduced to a small display summary.
+
+Recommended display fields:
+
+- title
+- song count
+- one preferred platform label
+- release year
+- compact region emoji set
+
+Platform preference:
+
+- if `Arcade` is present, display `Arcade`
+- otherwise if any Nintendo platform is present, display `Nintendo Systems`
+- otherwise if any PlayStation platform is present, display `PlayStation Systems`
+- otherwise fall back to the first listed platform
+
+Nintendo platforms for this rule:
+
+- `Game Boy Color`
+- `Nintendo 64`
+- `GameCube`
+- `Wii`
+
+PlayStation platforms for this rule:
+
+- `PlayStation`
+- `PlayStation 2`
+
+Release year mapping:
+
+- derive from the first four digits of `EarliestRelease`
+- if no release date is available, display `-`
+
+Region emoji mapping:
+
+- `Japan` → `🇯🇵`
+- `Korea` → `🇰🇷`
+- `Asia` → `🌏`
+- `Europe` → `🇪🇺`
+- `North America` → `🇺🇸`
+- `South America` → `🌎`
+- `Oceania` → `🌊`
+
+Region collapse rule:
+
+- if a larger region is present, suppress contained country-specific entries in the compact display
+- current example: if `Asia` is present, suppress `Japan` and `Korea`
+- display multiple regions when multiple broad release regions apply
+
 ## Song Metadata
 
 Song metadata is read from simfile headers. The analysis scripts support both major chart container styles commonly found in StepMania content:
