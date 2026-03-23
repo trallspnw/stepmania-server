@@ -488,6 +488,11 @@
   justify-content: space-between;
 }
 
+.root :global(.appCanvas button.songCard),
+.root :global(.appCanvas button.folderRow) {
+  background: var(--bg-card-strong);
+}
+
 .root :global(.emptyInline) {
   text-align: center;
   color: var(--text-muted);
