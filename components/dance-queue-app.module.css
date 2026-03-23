@@ -16,6 +16,7 @@
   --difficulty-medium: #d59f27;
   --difficulty-hard: #d45567;
   --difficulty-expert: #7857d8;
+  --difficulty-custom: #3f4650;
   --grade-s: #d6ab1d;
   --grade-a: #2b9a66;
   --grade-b: #2892d4;
@@ -289,6 +290,11 @@
 
 .root :global(.difficulty-expert) {
   background: var(--difficulty-expert);
+  color: #fff;
+}
+
+.root :global(.difficulty-custom) {
+  background: var(--difficulty-custom);
   color: #fff;
 }
 
@@ -702,6 +708,36 @@
 
 .root :global(.difficultyButton) {
   border: 2px solid transparent;
+}
+
+.root :global(.appCanvas button.difficultyButton.difficulty-beginner) {
+  background: var(--difficulty-beginner);
+  color: #fff;
+}
+
+.root :global(.appCanvas button.difficultyButton.difficulty-easy) {
+  background: var(--difficulty-easy);
+  color: #fff;
+}
+
+.root :global(.appCanvas button.difficultyButton.difficulty-medium) {
+  background: var(--difficulty-medium);
+  color: #fff;
+}
+
+.root :global(.appCanvas button.difficultyButton.difficulty-hard) {
+  background: var(--difficulty-hard);
+  color: #fff;
+}
+
+.root :global(.appCanvas button.difficultyButton.difficulty-expert) {
+  background: var(--difficulty-expert);
+  color: #fff;
+}
+
+.root :global(.appCanvas button.difficultyButton.difficulty-custom) {
+  background: var(--difficulty-custom);
+  color: #fff;
 }
 
 .root :global(.difficultyButton.isSelected) {

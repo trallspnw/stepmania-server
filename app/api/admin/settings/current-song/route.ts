@@ -3,7 +3,7 @@ import { getAdminSession } from "@/lib/admin";
 import { getSetting, setSettings } from "@/lib/settings";
 import { SETTING_KEYS } from "@/lib/settingKeys";
 
-const validDifficulties = new Set(["Beginner", "Easy", "Medium", "Hard", "Expert"]);
+const validDifficulties = new Set(["Beginner", "Easy", "Medium", "Hard", "Expert", "Custom"]);
 
 export async function GET() {
   const result = await getAdminSession();

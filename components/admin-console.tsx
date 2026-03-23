@@ -1445,6 +1445,7 @@ export function AdminConsole({
                           <option value="Medium">Medium</option>
                           <option value="Hard">Hard</option>
                           <option value="Expert">Expert</option>
+                          <option value="Custom">Custom</option>
                         </Select>
                       </div>
 

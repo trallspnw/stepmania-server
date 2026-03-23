@@ -1,4 +1,10 @@
-export type DifficultySlot = "Beginner" | "Easy" | "Medium" | "Hard" | "Expert";
+export type DifficultySlot =
+  | "Beginner"
+  | "Easy"
+  | "Medium"
+  | "Hard"
+  | "Expert"
+  | "Custom";
 export type Grade = "S" | "A" | "B" | "C";
 export type QueueStatus = "playing" | "pending";
 
@@ -60,6 +66,7 @@ export const songs: Song[] = [
       { slot: "Medium", level: 12 },
       { slot: "Hard", level: 15 },
       { slot: "Expert", level: 18 },
+      { slot: "Custom", level: 19 },
     ],
   },
   {
@@ -432,6 +439,8 @@ export function getDifficultyTone(slot: DifficultySlot) {
       return "difficulty-hard";
     case "Expert":
       return "difficulty-expert";
+    case "Custom":
+      return "difficulty-custom";
   }
 }
 
