@@ -398,7 +398,13 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding-bottom: 0.2rem;
+  margin-bottom: 0.35rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(75, 59, 43, 0.08);
+  border-radius: 1.25rem;
+  background: linear-gradient(180deg, rgba(255, 249, 241, 0.94), rgba(255, 249, 241, 0.88));
+  box-shadow: 0 12px 32px rgba(84, 59, 39, 0.08);
+  backdrop-filter: blur(18px);
 }
 
 .root :global(.segmentedToolbar) {
