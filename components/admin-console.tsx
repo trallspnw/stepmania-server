@@ -58,6 +58,98 @@ type CurrentSongSettings = {
   playerId: string;
 };
 
+type PackIngestResult = {
+  created: number;
+  updated: number;
+  deactivated: number;
+  unchanged: number;
+  errors: { folder: string; error: string }[];
+};
+
+type AggregateSongIngestResult = {
+  created: number;
+  updated: number;
+  deactivated: number;
+  unchanged: number;
+  errors: { folder: string; error: string }[];
+};
+
+type ChartIngestResult = {
+  created: number;
+  deleted: number;
+};
+
+type IngestionStatus = {
+  runId: number | null;
+  status: "idle" | "running" | "completed" | "failed";
+  startedAt: string | null;
+  finishedAt: string | null;
+  packs: {
+    status: "idle" | "running" | "completed" | "failed" | "pending";
+    result: PackIngestResult | null;
+    error: string | null;
+  };
+  songs: {
+    status: "idle" | "running" | "completed" | "failed" | "pending";
+    result: AggregateSongIngestResult | null;
+    error: string | null;
+  };
+  charts: {
+    status: "idle" | "running" | "completed" | "failed" | "pending";
+    result: ChartIngestResult | null;
+    error: string | null;
+  };
+};
+
+type LibraryPackRecord = {
+  id: number;
+  folderName: string;
+  sortIndex: string | null;
+  titles: string;
+  platforms: string | null;
+  regions: string | null;
+  earliestRelease: string | null;
+  source: string | null;
+  isCustom: boolean;
+  isCommunity: boolean;
+  songCount: number;
+  updatedAt: string;
+};
+
+type LibraryPacksResponse = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  packs: LibraryPackRecord[];
+};
+
+type LibrarySongRecord = {
+  id: number;
+  title: string;
+  artist: string | null;
+  simfileType: string;
+  bpmMin: number | null;
+  bpmMax: number | null;
+  available: boolean;
+  ingestFlags: string | null;
+  chartCount: number;
+  updatedAt: string;
+};
+
+type LibrarySongsResponse = {
+  pack: {
+    id: number;
+    folderName: string;
+    titles: string;
+  };
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  songs: LibrarySongRecord[];
+};
+
 interface AdminConsoleProps {
   currentUserId: number;
   initialUsers: AdminUser[];
@@ -111,6 +203,14 @@ export function AdminConsole({
   const [revokeTokenRecord, setRevokeTokenRecord] = useState<MachineTokenRecord | null>(null);
   const [activeUsers, setActiveUsers] = useState<ActiveUserOption[]>([]);
   const [currentSongLoading, setCurrentSongLoading] = useState(true);
+  const [ingestionStatus, setIngestionStatus] = useState<IngestionStatus | null>(null);
+  const [libraryPacks, setLibraryPacks] = useState<LibraryPacksResponse | null>(null);
+  const [libraryPage, setLibraryPage] = useState(1);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [selectedPack, setSelectedPack] = useState<LibraryPackRecord | null>(null);
+  const [librarySongs, setLibrarySongs] = useState<LibrarySongsResponse | null>(null);
+  const [librarySongsPage, setLibrarySongsPage] = useState(1);
+  const [librarySongsLoading, setLibrarySongsLoading] = useState(false);
   const [currentSongSettings, setCurrentSongSettings] = useState<CurrentSongSettings>({
     songPath: "",
     difficulty: "",
@@ -120,6 +220,7 @@ export function AdminConsole({
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const nextToastId = useRef(1);
   const signingOutRef = useRef(false);
+  const lastIngestionStatusRef = useRef<IngestionStatus["status"] | null>(null);
   const router = useRouter();
 
   const sortedUsers = useMemo(
@@ -134,6 +235,42 @@ export function AdminConsole({
     window.setTimeout(() => {
       setToasts((current) => current.filter((toast) => toast.id !== id));
     }, 3000);
+  }
+
+  async function loadLibraryPacks(page: number) {
+    setLibraryLoading(true);
+
+    const response = await fetch(`/api/admin/library/packs?page=${page}`, {
+      cache: "no-store",
+    });
+
+    setLibraryLoading(false);
+
+    if (!response.ok) {
+      pushToast("Failed to load library packs", "destructive");
+      return;
+    }
+
+    const data = (await response.json()) as LibraryPacksResponse;
+    setLibraryPacks(data);
+  }
+
+  async function loadLibrarySongs(packId: number, page: number) {
+    setLibrarySongsLoading(true);
+
+    const response = await fetch(`/api/admin/library/packs/${packId}/songs?page=${page}`, {
+      cache: "no-store",
+    });
+
+    setLibrarySongsLoading(false);
+
+    if (!response.ok) {
+      pushToast("Failed to load pack songs", "destructive");
+      return;
+    }
+
+    const data = (await response.json()) as LibrarySongsResponse;
+    setLibrarySongs(data);
   }
 
   useEffect(() => {
@@ -182,6 +319,81 @@ export function AdminConsole({
       window.clearInterval(interval);
     };
   }, [router]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadIngestionStatus() {
+      const response = await fetch("/api/admin/ingestion", { cache: "no-store" });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = (await response.json()) as IngestionStatus;
+
+      if (!cancelled) {
+        setIngestionStatus(data);
+      }
+    }
+
+    void loadIngestionStatus();
+
+    const interval = window.setInterval(() => {
+      void loadIngestionStatus();
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "library") {
+      return;
+    }
+
+    void loadLibraryPacks(libraryPage);
+  }, [activeTab, libraryPage]);
+
+  useEffect(() => {
+    if (activeTab !== "library" || !selectedPack) {
+      return;
+    }
+
+    void loadLibrarySongs(selectedPack.id, librarySongsPage);
+  }, [activeTab, selectedPack, librarySongsPage]);
+
+  useEffect(() => {
+    if (!ingestionStatus) {
+      return;
+    }
+
+    const previousStatus = lastIngestionStatusRef.current;
+    lastIngestionStatusRef.current = ingestionStatus.status;
+
+    if (previousStatus === "running" && ingestionStatus.status === "completed") {
+      const packResult = ingestionStatus.packs.result;
+      const songResult = ingestionStatus.songs.result;
+      const chartResult = ingestionStatus.charts.result;
+      void loadLibraryPacks(libraryPage);
+      if (selectedPack) {
+        void loadLibrarySongs(selectedPack.id, librarySongsPage);
+      }
+      if (packResult && songResult && chartResult) {
+        pushToast(
+          `Packs: ${packResult.created} created, ${packResult.updated} updated, ${packResult.unchanged} unchanged\nSongs: ${songResult.created} created, ${songResult.updated} updated, ${songResult.errors.length} errors\nCharts: ${chartResult.created} created, ${chartResult.deleted} deleted`,
+        );
+      } else {
+        pushToast("Library ingestion finished");
+      }
+    }
+
+    if (previousStatus === "running" && ingestionStatus.status === "failed") {
+      pushToast("Library ingestion failed", "destructive");
+    }
+  }, [ingestionStatus]);
 
   useEffect(() => {
     let cancelled = false;
@@ -495,6 +707,36 @@ export function AdminConsole({
     pushToast("Current song updated");
   }
 
+  async function startIngestion() {
+    setLoadingId("start-ingestion");
+
+    const response = await fetch("/api/admin/ingestion", {
+      method: "POST",
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      pushToast(data.error ?? "Library ingestion failed to start", "destructive");
+      return;
+    }
+
+    const data = (await response.json()) as {
+      started: boolean;
+      status: IngestionStatus;
+    };
+
+    setIngestionStatus(data.status);
+
+    if (data.started) {
+      pushToast("Library ingestion started");
+      return;
+    }
+
+    pushToast("Library ingestion is already running");
+  }
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(232,138,89,0.28),transparent_28%),radial-gradient(circle_at_top_right,rgba(111,154,214,0.2),transparent_22%),linear-gradient(180deg,#f5f0e8_0%,#ece8df_100%)] px-4 py-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -707,9 +949,369 @@ export function AdminConsole({
           </TabsContent>
 
           <TabsContent value="library">
-            <section className="rounded-2xl border border-stone-200 bg-white/85 p-5 shadow-lg shadow-stone-900/5">
-              <h2 className="text-xl font-semibold text-stone-950">Library</h2>
-              <p className="mt-2 text-sm text-stone-600">Coming soon.</p>
+            <section className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Library Ingestion</CardTitle>
+                  <CardDescription>
+                    Start a background library ingestion run and monitor status here.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button
+                      disabled={loadingId === "start-ingestion" || ingestionStatus?.status === "running"}
+                      onClick={() => void startIngestion()}
+                      type="button"
+                    >
+                      <RefreshCw
+                        className={
+                          loadingId === "start-ingestion" || ingestionStatus?.status === "running"
+                            ? "mr-2 h-4 w-4 animate-spin"
+                            : "mr-2 h-4 w-4"
+                        }
+                      />
+                      Run Ingestion
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50/80 p-4 text-sm text-stone-700">
+                    <p>
+                      <span className="font-medium text-stone-900">Status:</span>{" "}
+                      {ingestionStatus ? ingestionStatus.status : "Loading"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-stone-900">Packs:</span>{" "}
+                      {ingestionStatus?.packs.status ?? "idle"}
+                      {ingestionStatus?.packs.result
+                        ? ` (${ingestionStatus.packs.result.created} created, ${ingestionStatus.packs.result.updated} updated, ${ingestionStatus.packs.result.unchanged} unchanged)`
+                        : ""}
+                    </p>
+                    <p>
+                      <span className="font-medium text-stone-900">Songs:</span>{" "}
+                      {ingestionStatus?.songs.status ?? "idle"}
+                      {ingestionStatus?.songs.result
+                        ? ` (${ingestionStatus.songs.result.created} created, ${ingestionStatus.songs.result.updated} updated, ${ingestionStatus.songs.result.unchanged} unchanged)`
+                        : ""}
+                    </p>
+                    <p>
+                      <span className="font-medium text-stone-900">Charts:</span>{" "}
+                      {ingestionStatus?.charts.status ?? "idle"}
+                      {ingestionStatus?.charts.result
+                        ? ` (${ingestionStatus.charts.result.created} created, ${ingestionStatus.charts.result.deleted} deleted)`
+                        : ""}
+                    </p>
+                    {ingestionStatus?.startedAt ? (
+                      <p>
+                        <span className="font-medium text-stone-900">Started:</span>{" "}
+                        {formatRelativeTime(ingestionStatus.startedAt)}
+                      </p>
+                    ) : null}
+                    {ingestionStatus?.finishedAt ? (
+                      <p>
+                        <span className="font-medium text-stone-900">Finished:</span>{" "}
+                        {formatRelativeTime(ingestionStatus.finishedAt)}
+                      </p>
+                    ) : null}
+                    {ingestionStatus?.packs.error ? (
+                      <p className="text-red-700">
+                        <span className="font-medium">Pack error:</span> {ingestionStatus.packs.error}
+                      </p>
+                    ) : null}
+                    {ingestionStatus?.songs.error ? (
+                      <p className="text-red-700">
+                        <span className="font-medium">Song error:</span> {ingestionStatus.songs.error}
+                      </p>
+                    ) : null}
+                    {ingestionStatus?.charts.error ? (
+                      <p className="text-red-700">
+                        <span className="font-medium">Chart error:</span> {ingestionStatus.charts.error}
+                      </p>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <CardTitle>Current Packs</CardTitle>
+                      <CardDescription>
+                        Database-backed pack inventory, paginated at 100 per page.
+                      </CardDescription>
+                    </div>
+                    <Button
+                      disabled={libraryLoading}
+                      onClick={() => void loadLibraryPacks(libraryPage)}
+                      type="button"
+                      variant="outline"
+                    >
+                      <RefreshCw className={libraryLoading ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
+                      Refresh
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-sm text-stone-600">
+                    {libraryPacks
+                      ? `${libraryPacks.total} packs total, page ${libraryPacks.page} of ${libraryPacks.totalPages}`
+                      : "Loading pack inventory"}
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-stone-200">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Pack</TableHead>
+                          <TableHead>Platforms</TableHead>
+                          <TableHead>Regions</TableHead>
+                          <TableHead>Release</TableHead>
+                          <TableHead>Songs</TableHead>
+                          <TableHead>Source</TableHead>
+                          <TableHead>Updated</TableHead>
+                          <TableHead className="min-w-[120px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {!libraryPacks || libraryLoading ? (
+                          <TableRow>
+                            <TableCell className="text-stone-600" colSpan={8}>
+                              Loading packs...
+                            </TableCell>
+                          </TableRow>
+                        ) : libraryPacks.packs.length === 0 ? (
+                          <TableRow>
+                            <TableCell className="text-stone-600" colSpan={8}>
+                              No packs found.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          libraryPacks.packs.map((pack) => {
+                            const [displayTitle, ...alternateTitles] = pack.titles.split("|");
+                            return (
+                              <TableRow key={pack.id}>
+                                <TableCell>
+                                  <div className="space-y-1">
+                                    <div className="font-medium text-stone-900">{displayTitle}</div>
+                                    <div className="text-xs text-stone-500">{pack.folderName}</div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {pack.sortIndex ? <Badge variant="gray">{pack.sortIndex}</Badge> : null}
+                                      {pack.isCommunity ? <Badge variant="blue">Community</Badge> : null}
+                                      {pack.isCustom ? <Badge variant="green">Custom</Badge> : null}
+                                      {alternateTitles.length > 0 ? (
+                                        <Badge variant="gray">{alternateTitles.length + 1} titles</Badge>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-stone-600">
+                                  {pack.platforms ?? "Unknown"}
+                                </TableCell>
+                                <TableCell className="text-stone-600">
+                                  {pack.regions ?? "Unknown"}
+                                </TableCell>
+                                <TableCell className="text-stone-600">
+                                  {pack.earliestRelease ?? "Unknown"}
+                                </TableCell>
+                                <TableCell className="text-stone-600">{pack.songCount}</TableCell>
+                                <TableCell className="max-w-[260px] text-stone-600">
+                                  {pack.source && /^https?:\/\//.test(pack.source) ? (
+                                    <a
+                                      className="break-all text-amber-700 underline decoration-amber-300 underline-offset-2"
+                                      href={pack.source}
+                                      rel="noreferrer"
+                                      target="_blank"
+                                    >
+                                      {pack.source}
+                                    </a>
+                                  ) : pack.source ? (
+                                    <span className="break-all">{pack.source}</span>
+                                  ) : (
+                                    "Unknown"
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-stone-600">
+                                  {formatRelativeTime(pack.updatedAt)}
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    onClick={() => {
+                                      setSelectedPack(pack);
+                                      setLibrarySongsPage(1);
+                                    }}
+                                    size="sm"
+                                    type="button"
+                                    variant={selectedPack?.id === pack.id ? "default" : "outline"}
+                                  >
+                                    View Songs
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-stone-600">
+                      Showing up to {libraryPacks?.pageSize ?? 100} packs per page
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        disabled={libraryLoading || libraryPage <= 1}
+                        onClick={() => setLibraryPage((current) => Math.max(1, current - 1))}
+                        type="button"
+                        variant="outline"
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        disabled={
+                          libraryLoading ||
+                          !libraryPacks ||
+                          libraryPage >= libraryPacks.totalPages
+                        }
+                        onClick={() =>
+                          setLibraryPage((current) =>
+                            libraryPacks ? Math.min(libraryPacks.totalPages, current + 1) : current + 1,
+                          )
+                        }
+                        type="button"
+                        variant="outline"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {selectedPack ? (
+                <Card>
+                  <CardHeader>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <CardTitle>Songs In {selectedPack.titles.split("|")[0]}</CardTitle>
+                        <CardDescription>
+                          {selectedPack.folderName}
+                        </CardDescription>
+                      </div>
+                      <Button
+                        disabled={librarySongsLoading}
+                        onClick={() => void loadLibrarySongs(selectedPack.id, librarySongsPage)}
+                        type="button"
+                        variant="outline"
+                      >
+                        <RefreshCw
+                          className={librarySongsLoading ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"}
+                        />
+                        Refresh
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="text-sm text-stone-600">
+                      {librarySongs
+                        ? `${librarySongs.total} songs total, page ${librarySongs.page} of ${librarySongs.totalPages}`
+                        : "Loading songs"}
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-stone-200">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Title</TableHead>
+                            <TableHead>Artist</TableHead>
+                            <TableHead>Simfile</TableHead>
+                            <TableHead>BPM</TableHead>
+                            <TableHead>Charts</TableHead>
+                            <TableHead>Flags</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Updated</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {!librarySongs || librarySongsLoading ? (
+                            <TableRow>
+                              <TableCell className="text-stone-600" colSpan={8}>
+                                Loading songs...
+                              </TableCell>
+                            </TableRow>
+                          ) : librarySongs.songs.length === 0 ? (
+                            <TableRow>
+                              <TableCell className="text-stone-600" colSpan={8}>
+                                No songs found.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            librarySongs.songs.map((song) => (
+                              <TableRow key={song.id}>
+                                <TableCell className="font-medium text-stone-900">{song.title}</TableCell>
+                                <TableCell className="text-stone-600">{song.artist ?? "Unknown"}</TableCell>
+                                <TableCell className="text-stone-600 uppercase">{song.simfileType}</TableCell>
+                                <TableCell className="text-stone-600">
+                                  {song.bpmMin && song.bpmMax
+                                    ? song.bpmMin === song.bpmMax
+                                      ? `${song.bpmMin}`
+                                      : `${song.bpmMin}-${song.bpmMax}`
+                                    : "Unknown"}
+                                </TableCell>
+                                <TableCell className="text-stone-600">{song.chartCount}</TableCell>
+                                <TableCell className="max-w-[240px] text-stone-600">
+                                  {song.ingestFlags ?? "None"}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={song.available ? "green" : "red"}>
+                                    {song.available ? "Available" : "Missing"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-stone-600">
+                                  {formatRelativeTime(song.updatedAt)}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-sm text-stone-600">
+                        Showing up to {librarySongs?.pageSize ?? 100} songs per page
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          disabled={librarySongsLoading || librarySongsPage <= 1}
+                          onClick={() => setLibrarySongsPage((current) => Math.max(1, current - 1))}
+                          type="button"
+                          variant="outline"
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          disabled={
+                            librarySongsLoading ||
+                            !librarySongs ||
+                            librarySongsPage >= librarySongs.totalPages
+                          }
+                          onClick={() =>
+                            setLibrarySongsPage((current) =>
+                              librarySongs ? Math.min(librarySongs.totalPages, current + 1) : current + 1,
+                            )
+                          }
+                          type="button"
+                          variant="outline"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
             </section>
           </TabsContent>
 

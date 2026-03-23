@@ -23,7 +23,7 @@ export function ToastViewport({
           )}
           key={toast.id}
         >
-          <p className="text-sm font-medium">{toast.title}</p>
+          <p className="whitespace-pre-line text-sm font-medium">{toast.title}</p>
         </div>
       ))}
     </div>
