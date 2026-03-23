@@ -738,7 +738,8 @@ export function AdminConsole({
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(232,138,89,0.28),transparent_28%),radial-gradient(circle_at_top_right,rgba(111,154,214,0.2),transparent_22%),linear-gradient(180deg,#f5f0e8_0%,#ece8df_100%)] px-4 py-8">
+    <main className="relative min-h-screen px-4 py-8">
+      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(232,138,89,0.28),transparent_28%),radial-gradient(circle_at_top_right,rgba(111,154,214,0.2),transparent_22%),linear-gradient(180deg,#f5f0e8_0%,#ece8df_100%)]" />
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="space-y-2">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
