@@ -112,6 +112,7 @@ export function BrowseScreen() {
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const sheetRef = useRef<HTMLElement | null>(null);
+  const filtersRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!justAdded) return;
@@ -216,6 +217,32 @@ export function BrowseScreen() {
       document.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [selectedSong]);
+
+  useEffect(() => {
+    if (!filtersOpen) {
+      return;
+    }
+
+    function handleDocumentClick(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (filtersRef.current?.contains(target)) {
+        return;
+      }
+
+      setFiltersOpen(false);
+    }
+
+    document.addEventListener("click", handleDocumentClick);
+
+    return () => {
+      document.removeEventListener("click", handleDocumentClick);
+    };
+  }, [filtersOpen]);
 
   const hasActiveFilters =
     filters.minDifficulty !== defaultFilters.minDifficulty ||
@@ -551,7 +578,7 @@ export function BrowseScreen() {
           <div className="toolbarCopy">
             <h2>{folderView.value}</h2>
             <p>
-              {songsTotal} songs · {getLibraryGameModeLabel(activeGameMode)}
+              {songsTotal} songs · Mode: {getLibraryGameModeLabel(activeGameMode)}
             </p>
           </div>
           <button
@@ -611,12 +638,12 @@ export function BrowseScreen() {
             </label>
           ) : null}
 
-          <div className="browseModeMeta muted">{getLibraryGameModeLabel(activeGameMode)}</div>
+          <div className="browseModeMeta muted">Mode: {getLibraryGameModeLabel(activeGameMode)}</div>
         </>
       )}
 
       {filtersOpen ? (
-        <section className="card filterCard">
+        <section className="card filterCard" ref={filtersRef}>
           <div className="splitRow filterHeader">
             <h3>Filters</h3>
             {hasActiveFilters ? (
