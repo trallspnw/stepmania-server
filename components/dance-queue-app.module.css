@@ -807,6 +807,10 @@
 
 .root :global(.difficultyButton) {
   border: 2px solid transparent;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
 }
 
 .root :global(.appCanvas button.difficultyButton.difficulty-beginner) {
@@ -840,8 +844,26 @@
 }
 
 .root :global(.difficultyButton.isSelected) {
-  border-color: rgba(38, 31, 23, 0.92);
-  box-shadow: 0 0 0 4px rgba(38, 31, 23, 0.08);
+  border-color: rgba(38, 31, 23, 0.96);
+  box-shadow:
+    0 0 0 5px rgba(38, 31, 23, 0.14),
+    0 10px 20px rgba(38, 31, 23, 0.16);
+  transform: scale(1.04);
+  animation: selectedPulse 1.9s ease-in-out infinite;
+}
+
+@keyframes selectedPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 5px rgba(38, 31, 23, 0.12),
+      0 10px 20px rgba(38, 31, 23, 0.16);
+  }
+  50% {
+    box-shadow:
+      0 0 0 7px rgba(38, 31, 23, 0.18),
+      0 12px 24px rgba(38, 31, 23, 0.2);
+  }
 }
 
 .root :global(.primaryButton) {
