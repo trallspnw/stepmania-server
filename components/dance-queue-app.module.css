@@ -761,8 +761,8 @@
   position: fixed;
   inset: 0;
   z-index: 50;
-  pointer-events: none;
-  background: rgba(31, 22, 13, 0.34);
+  background: rgba(31, 22, 13, 0.18);
+  backdrop-filter: blur(4px);
 }
 
 .root :global(.sheet) {
