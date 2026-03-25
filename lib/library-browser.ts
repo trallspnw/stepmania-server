@@ -7,6 +7,7 @@ export type BrowseDifficultySlot =
   | "Custom";
 
 export interface BrowseDifficulty {
+  chartId: number;
   slot: BrowseDifficultySlot;
   level: number;
 }

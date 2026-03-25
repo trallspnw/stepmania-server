@@ -21,6 +21,7 @@ Everything in `docs/` should either be linked here directly or be reachable from
 - Migration workflow: [`knowledge/migration-workflow.md`](./knowledge/migration-workflow.md)
 - Current app implementation: [`../app/`](../app/)
 - Metadata reference: [`knowledge/metadata.md`](./knowledge/metadata.md)
+- Queue design: [`knowledge/queue.md`](./knowledge/queue.md)
 
 ## Discoverability Rule
 

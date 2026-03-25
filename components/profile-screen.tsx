@@ -26,7 +26,7 @@ import {
 } from "@/lib/mock-data";
 
 export function ProfileScreen() {
-  const { state, currentUser } = useApp();
+  const { state, currentUser, queueEntries, queueLoading } = useApp();
   const currentPlayer = getPlayerById(state.currentPlayerId);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [password, setPassword] = useState("");
@@ -47,9 +47,7 @@ export function ProfileScreen() {
     );
   }
 
-  const myQueueEntries = state.queueEntries.filter(
-    (entry) => entry.playerId === state.currentPlayerId,
-  );
+  const myQueueEntries = queueEntries.filter((entry) => entry.user.id === currentUser.id);
   const myHistoryEntries = state.historyEntries.filter(
     (entry) => entry.playerId === state.currentPlayerId,
   );
@@ -134,26 +132,23 @@ export function ProfileScreen() {
             <span>My Queue ({myQueueEntries.length})</span>
           </div>
         </header>
-        {myQueueEntries.length === 0 ? (
+        {queueLoading ? (
+          <p className="muted">Loading queue...</p>
+        ) : myQueueEntries.length === 0 ? (
           <p className="muted">No songs in your queue.</p>
         ) : (
           <div className="stack tight">
             {myQueueEntries.map((entry) => {
-              const song = getSongById(entry.songId);
-              if (!song) return null;
-
               return (
                 <div className="splitRow" key={entry.id}>
                   <div>
-                    <h3>{song.title}</h3>
-                    <p className="muted">{song.artist}</p>
+                    <h3>{entry.song.title}</h3>
+                    <p className="muted">{entry.song.artist}</p>
                   </div>
                   <span
-                    className={`pill ${getDifficultyTone(
-                      entry.selectedDifficulty.slot,
-                    )}`}
+                    className={`pill ${getDifficultyTone(entry.chart.difficultySlot)}`}
                   >
-                    {entry.selectedDifficulty.slot} {entry.selectedDifficulty.level}
+                    {entry.chart.difficultySlot} {entry.chart.meter}
                   </span>
                 </div>
               );

@@ -2,16 +2,36 @@
 
 import { CloseIcon, MusicIcon } from "@/components/icons";
 import { useApp } from "@/lib/app-context";
-import {
-  getDifficultyTone,
-  getPlayerById,
-  getSongById,
-} from "@/lib/mock-data";
+import { getDifficultyTone } from "@/lib/library-browser";
 
 export function QueueScreen() {
-  const { state, removeFromQueue } = useApp();
+  const { currentUser, queueEntries, queueError, queueLoading, removeFromQueue } = useApp();
 
-  if (state.queueEntries.length === 0) {
+  if (queueLoading && queueEntries.length === 0) {
+    return (
+      <div className="emptyState">
+        <div className="emptyStateIcon">
+          <MusicIcon className="sectionIcon" />
+        </div>
+        <h2>Loading Queue</h2>
+        <p>Fetching queued songs.</p>
+      </div>
+    );
+  }
+
+  if (queueError && queueEntries.length === 0) {
+    return (
+      <div className="emptyState">
+        <div className="emptyStateIcon">
+          <MusicIcon className="sectionIcon" />
+        </div>
+        <h2>Queue Unavailable</h2>
+        <p>{queueError}</p>
+      </div>
+    );
+  }
+
+  if (queueEntries.length === 0) {
     return (
       <div className="emptyState">
         <div className="emptyStateIcon">
@@ -25,19 +45,9 @@ export function QueueScreen() {
 
   return (
     <div className="stack">
-      {state.queueEntries.map((entry, index) => {
-        const song = getSongById(entry.songId);
-        const player = getPlayerById(entry.playerId);
-
-        if (!player) return null;
-
-        const songTitle = song?.title ?? entry.songSnapshot?.title;
-        const songArtist = song?.artist ?? entry.songSnapshot?.artist;
-
-        if (!songTitle || !songArtist) return null;
-
+      {queueEntries.map((entry, index) => {
         const isPlaying = entry.status === "playing";
-        const isOwn = entry.playerId === state.currentPlayerId;
+        const isOwn = entry.user.id === currentUser.id;
 
         return (
           <article
@@ -50,24 +60,26 @@ export function QueueScreen() {
             </div>
             <div className="queueContent">
               {isPlaying ? <span className="eyebrowPill">Now Playing</span> : null}
-              <h3>{songTitle}</h3>
-              <p className="muted">{songArtist}</p>
+              <h3>{entry.song.title}</h3>
+              <p className="muted">{entry.song.artist}</p>
               <div className="metaRow">
                 <span
                   className={`pill ${getDifficultyTone(
-                    entry.selectedDifficulty.slot,
+                    entry.chart.difficultySlot,
                   )}`}
                 >
-                  {entry.selectedDifficulty.slot} {entry.selectedDifficulty.level}
+                  {entry.chart.difficultySlot} {entry.chart.meter}
                 </span>
-                <span className="muted">by {player.name}</span>
+                <span className="muted">by {entry.user.displayName}</span>
               </div>
             </div>
             {isOwn && !isPlaying ? (
               <button
                 aria-label="Remove from queue"
                 className="iconButton dangerButton"
-                onClick={() => removeFromQueue(entry.id)}
+                onClick={() => {
+                  void removeFromQueue(entry.id);
+                }}
                 type="button"
               >
                 <CloseIcon className="tinyIcon" />

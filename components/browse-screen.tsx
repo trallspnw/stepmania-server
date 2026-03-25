@@ -614,15 +614,14 @@ export function BrowseScreen() {
     setSelectedDifficulty(song.difficulties[0] ?? null);
   }
 
-  function addSelectedSong() {
+  async function addSelectedSong() {
     if (!selectedSong || !selectedDifficulty) return;
 
-    addToQueue(selectedSong.id, selectedDifficulty, {
-      title: selectedSong.title,
-      artist: selectedSong.artist,
-    });
+    const didAdd = await addToQueue(Number(selectedSong.id), selectedDifficulty.chartId);
 
-    setJustAdded(selectedSong.id);
+    if (didAdd) {
+      setJustAdded(selectedSong.id);
+    }
   }
 
   function commitFilterField(field: keyof Filters) {
@@ -1065,12 +1064,11 @@ export function BrowseScreen() {
                 {selectedSong.difficulties.map((difficulty, index) => (
                   <button
                     className={`pill difficultyButton ${getDifficultyTone(difficulty.slot)}${
-                      selectedDifficulty?.slot === difficulty.slot &&
-                      selectedDifficulty?.level === difficulty.level
+                      selectedDifficulty?.chartId === difficulty.chartId
                         ? " isSelected"
                         : ""
                     }`}
-                    key={`${selectedSong.id}-${difficulty.slot}-${difficulty.level}-${index}`}
+                    key={`${selectedSong.id}-${difficulty.chartId}-${index}`}
                     onClick={() => setSelectedDifficulty(difficulty)}
                     type="button"
                   >

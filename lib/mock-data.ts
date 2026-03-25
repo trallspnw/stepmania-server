@@ -6,7 +6,6 @@ export type DifficultySlot =
   | "Expert"
   | "Custom";
 export type Grade = "S" | "A" | "B" | "C";
-export type QueueStatus = "playing" | "pending";
 
 export interface Player {
   id: string;
@@ -33,19 +32,6 @@ export interface PackMetadata {
   platforms: string[];
   regions: string[];
   earliestRelease: string | null;
-}
-
-export interface QueueEntry {
-  id: string;
-  playerId: string;
-  songId: string;
-  songSnapshot?: {
-    title: string;
-    artist: string;
-  };
-  selectedDifficulty: Difficulty;
-  status: QueueStatus;
-  addedAt: Date;
 }
 
 export interface HistoryEntry {
@@ -369,49 +355,6 @@ export const packMetadata: Record<string, PackMetadata> = {
     earliestRelease: null,
   },
 };
-
-export const initialQueueEntries: QueueEntry[] = [
-  {
-    id: "queue-1",
-    playerId: "alex",
-    songId: "song-3",
-    selectedDifficulty: { slot: "Medium", level: 6 },
-    status: "playing",
-    addedAt: new Date(Date.now() - 1000 * 60 * 5),
-  },
-  {
-    id: "queue-2",
-    playerId: "jordan",
-    songId: "song-7",
-    selectedDifficulty: { slot: "Hard", level: 11 },
-    status: "pending",
-    addedAt: new Date(Date.now() - 1000 * 60 * 4),
-  },
-  {
-    id: "queue-3",
-    playerId: "sam",
-    songId: "song-4",
-    selectedDifficulty: { slot: "Expert", level: 14 },
-    status: "pending",
-    addedAt: new Date(Date.now() - 1000 * 60 * 3),
-  },
-  {
-    id: "queue-4",
-    playerId: "taylor",
-    songId: "song-10",
-    selectedDifficulty: { slot: "Expert", level: 16 },
-    status: "pending",
-    addedAt: new Date(Date.now() - 1000 * 60 * 2),
-  },
-  {
-    id: "queue-5",
-    playerId: "alex",
-    songId: "song-13",
-    selectedDifficulty: { slot: "Expert", level: 20 },
-    status: "pending",
-    addedAt: new Date(Date.now() - 1000 * 60),
-  },
-];
 
 export const initialHistoryEntries: HistoryEntry[] = [
   {

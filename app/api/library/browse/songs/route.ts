@@ -183,6 +183,7 @@ export async function GET(request: Request) {
           },
           orderBy: [{ meter: "asc" }, { difficultySlot: "asc" }],
           select: {
+            id: true,
             difficultySlot: true,
             meter: true,
           },
@@ -235,14 +236,14 @@ export async function GET(request: Request) {
     gameMode,
     filterBounds,
     songs: songs.map((song) => {
-      const normalizedCharts = new Map<string, number>();
+      const normalizedCharts = new Map<string, { chartId: number; meter: number }>();
 
       for (const chart of song.charts) {
         const slot = normalizeDifficultySlot(chart.difficultySlot);
-        const currentMeter = normalizedCharts.get(slot);
+        const currentChart = normalizedCharts.get(slot);
 
-        if (currentMeter == null || chart.meter > currentMeter) {
-          normalizedCharts.set(slot, chart.meter);
+        if (currentChart == null || chart.meter > currentChart.meter) {
+          normalizedCharts.set(slot, { chartId: chart.id, meter: chart.meter });
         }
       }
 
@@ -256,9 +257,10 @@ export async function GET(request: Request) {
         bpmFilterMin: song.bpmMin,
         bpmFilterMax: song.bpmMax,
         difficulties: [...normalizedCharts.entries()]
-          .map(([slot, level]) => ({
+          .map(([slot, chart]) => ({
+            chartId: chart.chartId,
             slot: normalizeDifficultySlot(slot),
-            level,
+            level: chart.meter,
           }))
           .sort(
             (left, right) =>

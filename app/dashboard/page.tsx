@@ -14,6 +14,7 @@ export default async function DashboardPage() {
   return (
     <DanceQueueApp
       currentUser={{
+        id: result.user.id,
         displayName: result.user.displayName,
         isAdmin: result.user.isAdmin,
       }}

@@ -19,6 +19,7 @@ model User {
   claimedInvites        Invite[] @relation("ClaimedInvites")
   createdTokens         MachineToken[] @relation("CreatedTokens")
   playHistory           PlayHistory[] @relation("PlayHistory")
+  queueEntries          QueueEntry[]
 
   @@map("users")
 }
@@ -102,6 +103,7 @@ model Song {
   updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
   charts         Chart[]
   playHistory    PlayHistory[]
+  queueEntries   QueueEntry[]
 
   @@map("songs")
 }
@@ -116,6 +118,7 @@ model Chart {
   author         String?
   isPrimary      Boolean  @default(false) @map("is_primary")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  queueEntries   QueueEntry[]
 
   @@unique([songId, gameMode, difficultySlot])
   @@map("charts")
@@ -132,4 +135,22 @@ model PlayHistory {
   playedAt DateTime @default(now()) @map("played_at") @db.Timestamptz(6)
 
   @@map("play_history")
+}
+
+model QueueEntry {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  songId    Int      @map("song_id")
+  song      Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  chartId   Int      @map("chart_id")
+  chart     Chart    @relation(fields: [chartId], references: [id], onDelete: Cascade)
+  status    String   @default("queued")
+  playOrder Int      @map("play_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, playOrder])
+  @@index([userId, status, createdAt])
+  @@map("queue_entries")
 }
