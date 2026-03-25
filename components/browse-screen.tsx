@@ -111,6 +111,7 @@ export function BrowseScreen() {
   const [artistsError, setArtistsError] = useState<string | null>(null);
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const sheetRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!justAdded) return;
@@ -186,6 +187,33 @@ export function BrowseScreen() {
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
       }
+    };
+  }, [selectedSong]);
+
+  useEffect(() => {
+    if (!selectedSong) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (sheetRef.current?.contains(target)) {
+        return;
+      }
+
+      setSelectedSong(null);
+      setSelectedDifficulty(null);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [selectedSong]);
 
@@ -809,16 +837,8 @@ export function BrowseScreen() {
 
       {selectedSong ? (
         <>
-          <button
-            aria-label="Close song details"
-            className="sheetBackdrop"
-            onClick={() => {
-              setSelectedSong(null);
-              setSelectedDifficulty(null);
-            }}
-            type="button"
-          />
-          <section className="sheet">
+          <div aria-hidden="true" className="sheetBackdrop" />
+          <section className="sheet" ref={sheetRef}>
             <div className="sheetHandle" />
             {selectedSongBannerSrc ? (
               <div className="sheetBannerFrame">
