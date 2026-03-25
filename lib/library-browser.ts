@@ -232,15 +232,17 @@ export function formatBpmLabel(
   bpmMax: number | null,
 ) {
   if (displayBpm && displayBpm !== "*") {
-    return displayBpm;
+    return displayBpm
+      .replace(/\d+(?:\.\d+)?/g, (value) => String(Math.round(Number(value))))
+      .replace(/\s*[:~]\s*/g, "-");
   }
 
   if (bpmMin == null || bpmMax == null) {
     return "";
   }
 
-  const minLabel = Number.isInteger(bpmMin) ? String(bpmMin) : bpmMin.toFixed(2);
-  const maxLabel = Number.isInteger(bpmMax) ? String(bpmMax) : bpmMax.toFixed(2);
+  const minLabel = String(Math.round(bpmMin));
+  const maxLabel = String(Math.round(bpmMax));
 
   return minLabel === maxLabel ? minLabel : `${minLabel}-${maxLabel}`;
 }
