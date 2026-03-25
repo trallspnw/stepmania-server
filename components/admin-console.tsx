@@ -49,15 +49,7 @@ type MachineTokenRecord = {
   createdAt: string;
 };
 
-type ActiveUserOption = {
-  id: string;
-  displayName: string;
-};
-
-type CurrentSongSettings = {
-  songPath: string;
-  difficulty: string;
-  playerId: string;
+type ApplicationSettings = {
   libraryGameMode: string;
 };
 
@@ -211,8 +203,7 @@ export function AdminConsole({
     createdAt: string;
   } | null>(null);
   const [revokeTokenRecord, setRevokeTokenRecord] = useState<MachineTokenRecord | null>(null);
-  const [activeUsers, setActiveUsers] = useState<ActiveUserOption[]>([]);
-  const [currentSongLoading, setCurrentSongLoading] = useState(true);
+  const [applicationSettingsLoading, setApplicationSettingsLoading] = useState(true);
   const [adminQueueEntries, setAdminQueueEntries] = useState<QueueEntryRecord[]>([]);
   const [adminQueueLoading, setAdminQueueLoading] = useState(false);
   const [clearQueueDialogOpen, setClearQueueDialogOpen] = useState(false);
@@ -224,10 +215,7 @@ export function AdminConsole({
   const [librarySongs, setLibrarySongs] = useState<LibrarySongsResponse | null>(null);
   const [librarySongsPage, setLibrarySongsPage] = useState(1);
   const [librarySongsLoading, setLibrarySongsLoading] = useState(false);
-  const [currentSongSettings, setCurrentSongSettings] = useState<CurrentSongSettings>({
-    songPath: "",
-    difficulty: "",
-    playerId: "",
+  const [applicationSettings, setApplicationSettings] = useState<ApplicationSettings>({
     libraryGameMode: "dance-single",
   });
   const [machineTestToken, setMachineTestToken] = useState("");
@@ -457,36 +445,27 @@ export function AdminConsole({
     let cancelled = false;
 
     async function loadSystemData() {
-      const [settingsResponse, usersResponse] = await Promise.all([
-        fetch("/api/admin/settings/current-song", { cache: "no-store" }),
-        fetch("/api/admin/users/active", { cache: "no-store" }),
-      ]);
+      const settingsResponse = await fetch("/api/admin/settings/current-song", {
+        cache: "no-store",
+      });
 
-      if (!settingsResponse.ok || !usersResponse.ok) {
+      if (!settingsResponse.ok) {
         if (!cancelled) {
-          setCurrentSongLoading(false);
+          setApplicationSettingsLoading(false);
           pushToast("Failed to load system settings", "destructive");
         }
         return;
       }
 
       const settings = (await settingsResponse.json()) as {
-        songPath: string | null;
-        difficulty: string | null;
-        playerId: string | null;
         libraryGameMode: string | null;
       };
-      const users = (await usersResponse.json()) as ActiveUserOption[];
 
       if (!cancelled) {
-        setCurrentSongSettings({
-          songPath: settings.songPath ?? "",
-          difficulty: settings.difficulty ?? "",
-          playerId: settings.playerId ?? "",
+        setApplicationSettings({
           libraryGameMode: settings.libraryGameMode ?? "dance-single",
         });
-        setActiveUsers(users);
-        setCurrentSongLoading(false);
+        setApplicationSettingsLoading(false);
       }
     }
 
@@ -589,14 +568,8 @@ export function AdminConsole({
 
     const userToDelete = deleteUser;
     const previousUsers = users;
-    const previousActiveUsers = activeUsers;
-    const previousPlayerId = currentSongSettings.playerId;
 
     setUsers((current) => current.filter((user) => user.id !== userToDelete.id));
-    setActiveUsers((current) => current.filter((user) => Number(user.id) !== userToDelete.id));
-    if (currentSongSettings.playerId === String(userToDelete.id)) {
-      setCurrentSongSettings((current) => ({ ...current, playerId: "" }));
-    }
     setLoadingId(`delete-${userToDelete.id}`);
 
     const response = await fetch(`/api/admin/users/${userToDelete.id}`, {
@@ -607,8 +580,6 @@ export function AdminConsole({
 
     if (!response.ok) {
       setUsers(previousUsers);
-      setActiveUsers(previousActiveUsers);
-      setCurrentSongSettings((current) => ({ ...current, playerId: previousPlayerId }));
       pushToast("Failed to delete user", "destructive");
       return;
     }
@@ -754,7 +725,7 @@ export function AdminConsole({
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(currentSongSettings),
+      body: JSON.stringify(applicationSettings),
     });
 
     setLoadingId(null);
@@ -1822,68 +1793,29 @@ export function AdminConsole({
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Current Song</CardTitle>
+                  <CardTitle>Application Settings</CardTitle>
                   <CardDescription>
-                    Configure the current song context shared with the game integration.
+                    Configure shared application behavior used by the library and dashboard.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {currentSongLoading ? (
+                  {applicationSettingsLoading ? (
                     <div className="space-y-4">
-                      <div className="h-11 animate-pulse rounded-md bg-stone-100" />
-                      <div className="h-11 animate-pulse rounded-md bg-stone-100" />
                       <div className="h-11 animate-pulse rounded-md bg-stone-100" />
                     </div>
                   ) : (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="current-song-path">Song Path</Label>
-                        <Input
-                          id="current-song-path"
-                          onChange={(event) =>
-                            setCurrentSongSettings((current) => ({
-                              ...current,
-                              songPath: event.target.value,
-                            }))
-                          }
-                          placeholder="Pack Name/Song Title"
-                          value={currentSongSettings.songPath}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="current-song-difficulty">Difficulty</Label>
-                        <Select
-                          id="current-song-difficulty"
-                          onChange={(event) =>
-                            setCurrentSongSettings((current) => ({
-                              ...current,
-                              difficulty: event.target.value,
-                            }))
-                          }
-                          value={currentSongSettings.difficulty}
-                        >
-                          <option value="">Select difficulty</option>
-                          <option value="Beginner">Beginner</option>
-                          <option value="Easy">Easy</option>
-                          <option value="Medium">Medium</option>
-                          <option value="Hard">Hard</option>
-                          <option value="Expert">Expert</option>
-                          <option value="Custom">Custom</option>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
                         <Label htmlFor="library-game-mode">Library Game Mode</Label>
                         <Select
                           id="library-game-mode"
                           onChange={(event) =>
-                            setCurrentSongSettings((current) => ({
+                            setApplicationSettings((current) => ({
                               ...current,
                               libraryGameMode: event.target.value,
                             }))
                           }
-                          value={currentSongSettings.libraryGameMode}
+                          value={applicationSettings.libraryGameMode}
                         >
                           {LIBRARY_GAME_MODE_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -1891,27 +1823,9 @@ export function AdminConsole({
                             </option>
                           ))}
                         </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="current-song-player">Player</Label>
-                        <Select
-                          id="current-song-player"
-                          onChange={(event) =>
-                            setCurrentSongSettings((current) => ({
-                              ...current,
-                              playerId: event.target.value,
-                            }))
-                          }
-                          value={currentSongSettings.playerId}
-                        >
-                          <option value="">Select player</option>
-                          {activeUsers.map((user) => (
-                            <option key={user.id} value={user.id}>
-                              {user.displayName}
-                            </option>
-                          ))}
-                        </Select>
+                        <p className="text-sm text-stone-600">
+                          Controls which chart mode the library browser and queueing flow use by default.
+                        </p>
                       </div>
 
                       <div>
