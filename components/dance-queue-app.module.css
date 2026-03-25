@@ -507,9 +507,19 @@
   gap: 0.35rem;
 }
 
-.root :global(.rangeGrid input[type="range"]) {
+.root :global(.rangeGrid input[type="number"]) {
   width: 100%;
-  accent-color: var(--accent);
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--text);
+  outline: 0;
+}
+
+.root :global(.rangeGrid input[type="number"]:focus) {
+  border-color: rgba(212, 93, 49, 0.45);
+  box-shadow: 0 0 0 3px rgba(212, 93, 49, 0.12);
 }
 
 .root :global(.textButton) {

@@ -117,6 +117,16 @@ Region collapse rule:
 - current example: if `Asia` is present, suppress `Japan` and `Korea`
 - display multiple regions when multiple broad release regions apply
 
+### Browse Ordering Note
+
+- Browse results must be sorted before pagination, not after retrieval.
+- Post-pagination sorting breaks page boundaries and can produce inconsistent infinite-scroll ordering.
+- Prisma currently respects database collation for `orderBy`, but does not provide a built-in case-insensitive sort mode comparable to `LOWER(title)` ordering.
+- Because of that limitation, if case-insensitive browse ordering becomes important, the correct solutions are:
+  - a normalized sort column such as `titleSort`
+  - or a query path that uses explicit SQL ordering
+- Do not “fix” browse ordering by sorting the paged result set in application code.
+
 ## Song Metadata
 
 Song metadata is read from simfile headers. The analysis scripts support both major chart container styles commonly found in StepMania content:

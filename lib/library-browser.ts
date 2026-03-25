@@ -44,6 +44,12 @@ export interface BrowseSongsResponse {
   total: number;
   totalPages: number;
   gameMode: string;
+  filterBounds: {
+    minDifficulty: number;
+    maxDifficulty: number;
+    minBpm: number;
+    maxBpm: number;
+  };
   songs: BrowseSongRecord[];
 }
 

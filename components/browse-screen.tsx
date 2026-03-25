@@ -2,6 +2,7 @@
 
 import {
   CSSProperties,
+  KeyboardEvent,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -44,17 +45,31 @@ type FolderView =
   | null;
 
 interface Filters {
-  minDifficulty: number;
-  maxDifficulty: number;
-  minBpm: number;
-  maxBpm: number;
+  minDifficulty: number | null;
+  maxDifficulty: number | null;
+  minBpm: number | null;
+  maxBpm: number | null;
+}
+
+interface FilterInputs {
+  minDifficulty: string;
+  maxDifficulty: string;
+  minBpm: string;
+  maxBpm: string;
 }
 
 const defaultFilters: Filters = {
-  minDifficulty: 1,
-  maxDifficulty: 25,
-  minBpm: 100,
-  maxBpm: 450,
+  minDifficulty: null,
+  maxDifficulty: null,
+  minBpm: null,
+  maxBpm: null,
+};
+
+const defaultFilterInputs: FilterInputs = {
+  minDifficulty: "",
+  maxDifficulty: "",
+  minBpm: "",
+  maxBpm: "",
 };
 
 function appendUniqueBy<T>(current: T[], incoming: T[], getKey: (item: T) => string | number) {
@@ -75,6 +90,53 @@ function appendUniqueBy<T>(current: T[], incoming: T[], getKey: (item: T) => str
   return next;
 }
 
+function clampFilterValue(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function parseFilterInput(
+  rawValue: string,
+  min: number,
+  max: number,
+) {
+  if (rawValue.trim() === "") {
+    return null;
+  }
+
+  const parsed = Number(rawValue);
+
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return clampFilterValue(parsed, min, max);
+}
+
+function currentMinDifficultyLimit(filters: Filters, bounds: Filters) {
+  return bounds.minDifficulty ?? 1;
+}
+
+function currentMaxDifficultyLimit(filters: Filters, bounds: Filters) {
+  return bounds.maxDifficulty ?? 25;
+}
+
+function currentMinBpmLimit(filters: Filters, bounds: Filters) {
+  return bounds.minBpm ?? 100;
+}
+
+function currentMaxBpmLimit(filters: Filters, bounds: Filters) {
+  return bounds.maxBpm ?? 450;
+}
+
+function filtersToInputs(filters: Filters): FilterInputs {
+  return {
+    minDifficulty: filters.minDifficulty == null ? "" : String(filters.minDifficulty),
+    maxDifficulty: filters.maxDifficulty == null ? "" : String(filters.maxDifficulty),
+    minBpm: filters.minBpm == null ? "" : String(filters.minBpm),
+    maxBpm: filters.maxBpm == null ? "" : String(filters.maxBpm),
+  };
+}
+
 export function BrowseScreen() {
   const { addToQueue } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
@@ -87,6 +149,9 @@ export function BrowseScreen() {
   const [folderView, setFolderView] = useState<FolderView>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>(defaultFilters);
+  const [filterInputs, setFilterInputs] = useState<FilterInputs>(defaultFilterInputs);
+  const [filterBounds, setFilterBounds] = useState<Filters>(defaultFilters);
+  const [shouldResetFilters, setShouldResetFilters] = useState(true);
 
   const [songs, setSongs] = useState<BrowseSongRecord[]>([]);
   const [songsPage, setSongsPage] = useState(1);
@@ -216,22 +281,35 @@ export function BrowseScreen() {
     };
   }, [filtersOpen]);
 
+  useEffect(() => {
+    setFilterInputs(filtersToInputs(filters));
+  }, [filters]);
+
   const hasActiveFilters =
-    filters.minDifficulty !== defaultFilters.minDifficulty ||
-    filters.maxDifficulty !== defaultFilters.maxDifficulty ||
-    filters.minBpm !== defaultFilters.minBpm ||
-    filters.maxBpm !== defaultFilters.maxBpm;
+    filters.minDifficulty != null ||
+    filters.maxDifficulty != null ||
+    filters.minBpm != null ||
+    filters.maxBpm != null;
 
   const songsModeActive = browseMode === "search" || folderView !== null;
 
-  const songQueryKey = useMemo(
+  const browseContextKey = useMemo(
     () =>
       JSON.stringify({
         query: browseMode === "search" ? deferredSearch.trim() : "",
         folderView,
+        browseMode,
+      }),
+    [browseMode, deferredSearch, folderView],
+  );
+
+  const songQueryKey = useMemo(
+    () =>
+      JSON.stringify({
+        browseContextKey,
         filters,
       }),
-    [browseMode, deferredSearch, filters, folderView],
+    [browseContextKey, filters],
   );
 
   useEffect(() => {
@@ -251,13 +329,33 @@ export function BrowseScreen() {
       return;
     }
 
+    setShouldResetFilters(true);
+  }, [browseContextKey, songsModeActive]);
+
+  useEffect(() => {
+    if (!songsModeActive) {
+      return;
+    }
+
     const searchParams = new URLSearchParams({
       page: String(songsPage),
-      minDifficulty: String(filters.minDifficulty),
-      maxDifficulty: String(filters.maxDifficulty),
-      minBpm: String(filters.minBpm),
-      maxBpm: String(filters.maxBpm),
     });
+
+    if (filters.minDifficulty != null) {
+      searchParams.set("minDifficulty", String(filters.minDifficulty));
+    }
+
+    if (filters.maxDifficulty != null) {
+      searchParams.set("maxDifficulty", String(filters.maxDifficulty));
+    }
+
+    if (filters.minBpm != null) {
+      searchParams.set("minBpm", String(filters.minBpm));
+    }
+
+    if (filters.maxBpm != null) {
+      searchParams.set("maxBpm", String(filters.maxBpm));
+    }
 
     if (browseMode === "search" && deferredSearch.trim()) {
       searchParams.set("query", deferredSearch.trim());
@@ -294,6 +392,11 @@ export function BrowseScreen() {
         setSongsTotal(data.total);
         setSongsTotalPages(data.totalPages);
         setActiveGameMode(data.gameMode);
+        setFilterBounds(data.filterBounds);
+        if (shouldResetFilters) {
+          setFilters(defaultFilters);
+          setShouldResetFilters(false);
+        }
         setSongs((current) =>
           songsPage === 1 ? data.songs : appendUniqueBy(current, data.songs, (song) => song.id),
         );
@@ -313,7 +416,17 @@ export function BrowseScreen() {
     return () => {
       cancelled = true;
     };
-  }, [browseMode, deferredSearch, filters, folderView, songQueryKey, songsModeActive, songsPage]);
+  }, [
+    browseMode,
+    deferredSearch,
+    filters,
+    folderView,
+    browseContextKey,
+    songQueryKey,
+    songsModeActive,
+    songsPage,
+    shouldResetFilters,
+  ]);
 
   useEffect(() => {
     if (folderView || browseMode !== "packs") {
@@ -512,6 +625,59 @@ export function BrowseScreen() {
     setJustAdded(selectedSong.id);
   }
 
+  function commitFilterField(field: keyof Filters) {
+    setFilters((current) => {
+      switch (field) {
+        case "minDifficulty":
+          return {
+            ...current,
+            minDifficulty: parseFilterInput(
+              filterInputs.minDifficulty,
+              currentMinDifficultyLimit(current, filterBounds),
+              currentMaxDifficultyLimit(current, filterBounds),
+            ),
+          };
+        case "maxDifficulty":
+          return {
+            ...current,
+            maxDifficulty: parseFilterInput(
+              filterInputs.maxDifficulty,
+              currentMinDifficultyLimit(current, filterBounds),
+              currentMaxDifficultyLimit(current, filterBounds),
+            ),
+          };
+        case "minBpm":
+          return {
+            ...current,
+            minBpm: parseFilterInput(
+              filterInputs.minBpm,
+              currentMinBpmLimit(current, filterBounds),
+              currentMaxBpmLimit(current, filterBounds),
+            ),
+          };
+        case "maxBpm":
+          return {
+            ...current,
+            maxBpm: parseFilterInput(
+              filterInputs.maxBpm,
+              currentMinBpmLimit(current, filterBounds),
+              currentMaxBpmLimit(current, filterBounds),
+            ),
+          };
+      }
+    });
+  }
+
+  function handleFilterKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+    field: keyof Filters,
+  ) {
+    if (event.key === "Enter") {
+      event.currentTarget.blur();
+      commitFilterField(field);
+    }
+  }
+
   const currentListTotal = songsModeActive
     ? songsTotal
     : browseMode === "packs"
@@ -635,38 +801,46 @@ export function BrowseScreen() {
               <div className="splitRow">
                 <span>Difficulty Range</span>
                 <span className="muted">
-                  {filters.minDifficulty} - {filters.maxDifficulty}
+                  {filters.minDifficulty ?? "Any"} - {filters.maxDifficulty ?? "Any"}
                 </span>
               </div>
               <div className="rangeGrid">
                 <label>
                   <span className="inputLabel">Min</span>
                   <input
-                    max={filters.maxDifficulty}
-                    min={1}
+                    inputMode="numeric"
+                    max={currentMaxDifficultyLimit(filters, filterBounds)}
+                    min={currentMinDifficultyLimit(filters, filterBounds)}
+                    onBlur={() => commitFilterField("minDifficulty")}
                     onChange={(event) =>
-                      setFilters((current) => ({
+                      setFilterInputs((current) => ({
                         ...current,
-                        minDifficulty: Number(event.target.value),
+                        minDifficulty: event.target.value,
                       }))
                     }
-                    type="range"
-                    value={filters.minDifficulty}
+                    onKeyDown={(event) => handleFilterKeyDown(event, "minDifficulty")}
+                    placeholder={String(currentMinDifficultyLimit(filters, filterBounds))}
+                    type="number"
+                    value={filterInputs.minDifficulty}
                   />
                 </label>
                 <label>
                   <span className="inputLabel">Max</span>
                   <input
-                    max={25}
-                    min={filters.minDifficulty}
+                    inputMode="numeric"
+                    max={currentMaxDifficultyLimit(filters, filterBounds)}
+                    min={currentMinDifficultyLimit(filters, filterBounds)}
+                    onBlur={() => commitFilterField("maxDifficulty")}
                     onChange={(event) =>
-                      setFilters((current) => ({
+                      setFilterInputs((current) => ({
                         ...current,
-                        maxDifficulty: Number(event.target.value),
+                        maxDifficulty: event.target.value,
                       }))
                     }
-                    type="range"
-                    value={filters.maxDifficulty}
+                    onKeyDown={(event) => handleFilterKeyDown(event, "maxDifficulty")}
+                    placeholder={String(currentMaxDifficultyLimit(filters, filterBounds))}
+                    type="number"
+                    value={filterInputs.maxDifficulty}
                   />
                 </label>
               </div>
@@ -676,40 +850,48 @@ export function BrowseScreen() {
               <div className="splitRow">
                 <span>BPM Range</span>
                 <span className="muted">
-                  {filters.minBpm} - {filters.maxBpm}
+                  {filters.minBpm ?? "Any"} - {filters.maxBpm ?? "Any"}
                 </span>
               </div>
               <div className="rangeGrid">
                 <label>
                   <span className="inputLabel">Min</span>
                   <input
-                    max={filters.maxBpm}
-                    min={100}
+                    inputMode="numeric"
+                    max={currentMaxBpmLimit(filters, filterBounds)}
+                    min={currentMinBpmLimit(filters, filterBounds)}
+                    onBlur={() => commitFilterField("minBpm")}
                     onChange={(event) =>
-                      setFilters((current) => ({
+                      setFilterInputs((current) => ({
                         ...current,
-                        minBpm: Number(event.target.value),
+                        minBpm: event.target.value,
                       }))
                     }
-                    step={5}
-                    type="range"
-                    value={filters.minBpm}
+                    onKeyDown={(event) => handleFilterKeyDown(event, "minBpm")}
+                    placeholder={String(currentMinBpmLimit(filters, filterBounds))}
+                    step={1}
+                    type="number"
+                    value={filterInputs.minBpm}
                   />
                 </label>
                 <label>
                   <span className="inputLabel">Max</span>
                   <input
-                    max={450}
-                    min={filters.minBpm}
+                    inputMode="numeric"
+                    max={currentMaxBpmLimit(filters, filterBounds)}
+                    min={currentMinBpmLimit(filters, filterBounds)}
+                    onBlur={() => commitFilterField("maxBpm")}
                     onChange={(event) =>
-                      setFilters((current) => ({
+                      setFilterInputs((current) => ({
                         ...current,
-                        maxBpm: Number(event.target.value),
+                        maxBpm: event.target.value,
                       }))
                     }
-                    step={5}
-                    type="range"
-                    value={filters.maxBpm}
+                    onKeyDown={(event) => handleFilterKeyDown(event, "maxBpm")}
+                    placeholder={String(currentMaxBpmLimit(filters, filterBounds))}
+                    step={1}
+                    type="number"
+                    value={filterInputs.maxBpm}
                   />
                 </label>
               </div>

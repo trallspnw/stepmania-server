@@ -11,6 +11,7 @@ import { getSetting } from "@/lib/settings";
 import { SETTING_KEYS } from "@/lib/settingKeys";
 
 const PAGE_SIZE = 50;
+const MAX_BROWSE_BPM_BOUND = 1000;
 const DIFFICULTY_ORDER: Record<string, number> = {
   Beginner: 0,
   Easy: 1,
@@ -34,6 +35,17 @@ function getNumberParam(searchParams: URLSearchParams, key: string, fallback: nu
   return Number.isFinite(value) ? value : fallback;
 }
 
+function getOptionalNumberParam(searchParams: URLSearchParams, key: string) {
+  const rawValue = searchParams.get(key);
+
+  if (rawValue == null || rawValue.trim() === "") {
+    return null;
+  }
+
+  const value = Number(rawValue);
+  return Number.isFinite(value) ? value : null;
+}
+
 export async function GET(request: Request) {
   const result = await getSessionUserRecord();
 
@@ -47,12 +59,20 @@ export async function GET(request: Request) {
   const query = url.searchParams.get("query")?.trim() ?? "";
   const artist = url.searchParams.get("artist")?.trim() ?? "";
   const packId = Number(url.searchParams.get("packId") ?? "");
-  const minDifficulty = getNumberParam(url.searchParams, "minDifficulty", 1);
-  const maxDifficulty = getNumberParam(url.searchParams, "maxDifficulty", 25);
-  const minBpm = getNumberParam(url.searchParams, "minBpm", 100);
-  const maxBpm = getNumberParam(url.searchParams, "maxBpm", 450);
+  const minDifficulty = getOptionalNumberParam(url.searchParams, "minDifficulty");
+  const maxDifficulty = getOptionalNumberParam(url.searchParams, "maxDifficulty");
+  const minBpm = getOptionalNumberParam(url.searchParams, "minBpm");
+  const maxBpm = getOptionalNumberParam(url.searchParams, "maxBpm");
+  const normalizedMinDifficulty =
+    minDifficulty != null && maxDifficulty != null ? Math.min(minDifficulty, maxDifficulty) : minDifficulty;
+  const normalizedMaxDifficulty =
+    minDifficulty != null && maxDifficulty != null ? Math.max(minDifficulty, maxDifficulty) : maxDifficulty;
+  const normalizedMinBpm =
+    minBpm != null && maxBpm != null ? Math.min(minBpm, maxBpm) : minBpm;
+  const normalizedMaxBpm =
+    minBpm != null && maxBpm != null ? Math.max(minBpm, maxBpm) : maxBpm;
 
-  const where = {
+  const baseWhere = {
     available: true,
     ...(query
       ? {
@@ -79,35 +99,62 @@ export async function GET(request: Request) {
     charts: {
       some: {
         gameMode,
-        meter: {
-          gte: minDifficulty,
-          lte: maxDifficulty,
-        },
       },
     },
-    AND: [
-      {
-        OR: [
-          {
-            bpmMin: null,
-          },
-          {
-            bpmMax: null,
-          },
-          {
-            bpmMin: {
-              lte: maxBpm,
-            },
-            bpmMax: {
-              gte: minBpm,
-            },
-          },
-        ],
-      },
-    ],
   };
 
-  const [total, songs] = await Promise.all([
+  const where = {
+    ...baseWhere,
+    charts: {
+      some: {
+        gameMode,
+        ...((normalizedMinDifficulty != null || normalizedMaxDifficulty != null)
+          ? {
+              meter: {
+                ...(normalizedMinDifficulty != null ? { gte: normalizedMinDifficulty } : {}),
+                ...(normalizedMaxDifficulty != null ? { lte: normalizedMaxDifficulty } : {}),
+              },
+            }
+          : {}),
+      },
+    },
+    ...((normalizedMinBpm != null || normalizedMaxBpm != null)
+      ? {
+          AND: [
+            {
+              bpmMin: {
+                not: null,
+              },
+            },
+            {
+              bpmMax: {
+                not: null,
+              },
+            },
+            ...(normalizedMaxBpm != null
+              ? [
+                  {
+                    bpmMin: {
+                      lte: normalizedMaxBpm,
+                    },
+                  },
+                ]
+              : []),
+            ...(normalizedMinBpm != null
+              ? [
+                  {
+                    bpmMax: {
+                      gte: normalizedMinBpm,
+                    },
+                  },
+                ]
+              : []),
+          ],
+        }
+      : {}),
+  };
+
+  const [total, songs, songBpmBounds, chartDifficultyBounds] = await Promise.all([
     prisma.song.count({ where }),
     prisma.song.findMany({
       where,
@@ -125,10 +172,14 @@ export async function GET(request: Request) {
         charts: {
           where: {
             gameMode,
-            meter: {
-              gte: minDifficulty,
-              lte: maxDifficulty,
-            },
+            ...((normalizedMinDifficulty != null || normalizedMaxDifficulty != null)
+              ? {
+                  meter: {
+                    ...(normalizedMinDifficulty != null ? { gte: normalizedMinDifficulty } : {}),
+                    ...(normalizedMaxDifficulty != null ? { lte: normalizedMaxDifficulty } : {}),
+                  },
+                }
+              : {}),
           },
           orderBy: [{ meter: "asc" }, { difficultySlot: "asc" }],
           select: {
@@ -138,7 +189,43 @@ export async function GET(request: Request) {
         },
       },
     }),
+    prisma.song.aggregate({
+      where: {
+        ...baseWhere,
+        bpmMin: {
+          not: null,
+        },
+        bpmMax: {
+          not: null,
+        },
+      },
+      _min: {
+        bpmMin: true,
+      },
+      _max: {
+        bpmMax: true,
+      },
+    }),
+    prisma.chart.aggregate({
+      where: {
+        gameMode,
+        song: baseWhere,
+      },
+      _min: {
+        meter: true,
+      },
+      _max: {
+        meter: true,
+      },
+    }),
   ]);
+
+  const filterBounds = {
+    minDifficulty: chartDifficultyBounds._min.meter ?? 1,
+    maxDifficulty: chartDifficultyBounds._max.meter ?? 25,
+    minBpm: Math.floor(songBpmBounds._min.bpmMin ?? 100),
+    maxBpm: Math.min(MAX_BROWSE_BPM_BOUND, Math.ceil(songBpmBounds._max.bpmMax ?? 450)),
+  };
 
   return NextResponse.json({
     page,
@@ -146,6 +233,7 @@ export async function GET(request: Request) {
     total,
     totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     gameMode,
+    filterBounds,
     songs: songs.map((song) => {
       const normalizedCharts = new Map<string, number>();
 
