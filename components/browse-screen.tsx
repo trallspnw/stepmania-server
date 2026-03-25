@@ -714,7 +714,6 @@ export function BrowseScreen() {
                   <p>{song.artist}</p>
                   <div className="metaRow wrap songMetaRow muted">
                     <span className="songPackLabel">{song.pack}</span>
-                    {song.bpmLabel ? <span>{song.bpmLabel} BPM</span> : null}
                     <span>{song.difficulties.length} charts</span>
                     {hasCustom ? <span className="songMetaBadge">Custom</span> : null}
                   </div>
