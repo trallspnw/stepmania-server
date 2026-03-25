@@ -19,6 +19,53 @@ const CONTENT_TYPES: Record<string, string> = {
   ".bmp": "image/bmp",
 };
 
+function resolveFirstExistingAsset(songFolderPath: string, candidates: Array<string | undefined>) {
+  for (const candidate of candidates) {
+    if (!candidate?.trim()) {
+      continue;
+    }
+
+    const resolvedPath = resolveSongAssetPath(songFolderPath, candidate);
+
+    if (resolvedPath && fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isFile()) {
+      return resolvedPath;
+    }
+  }
+
+  return null;
+}
+
+function findFallbackImage(songFolderPath: string, fileStem: string) {
+  const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"]);
+  const entries = fs.readdirSync(songFolderPath).filter((entry) => {
+    const extension = path.extname(entry).toLowerCase();
+    return imageExtensions.has(extension);
+  });
+
+  const preferredNames = [
+    `${fileStem}.png`,
+    `${fileStem}.jpg`,
+    `${fileStem}.jpeg`,
+    `${fileStem}-jacket.png`,
+    `${fileStem}-jacket.jpg`,
+    `${fileStem}-jacket.jpeg`,
+    `${fileStem}-bg.png`,
+    `${fileStem}-bg.jpg`,
+    `${fileStem}-bg.jpeg`,
+  ];
+
+  for (const preferredName of preferredNames) {
+    const match = entries.find((entry) => entry.toLowerCase() === preferredName.toLowerCase());
+
+    if (match) {
+      return path.join(songFolderPath, match);
+    }
+  }
+
+  const genericMatch = entries.find((entry) => !entry.toLowerCase().includes("-bg."));
+  return genericMatch ? path.join(songFolderPath, genericMatch) : null;
+}
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ songId: string }> },
@@ -64,11 +111,18 @@ export async function GET(
     const parsed = parseSimfile(simfile.selectedPath);
     const bannerTag = parsed.tags.BANNER?.trim();
 
-    if (parsed.parseError || !bannerTag) {
+    if (parsed.parseError) {
       return NextResponse.json({ error: "Banner not found" }, { status: 404 });
     }
 
-    const bannerPath = resolveSongAssetPath(songFolderPath, bannerTag);
+    const simfileStem = path.basename(simfile.selectedPath, path.extname(simfile.selectedPath));
+    const bannerPath =
+      resolveFirstExistingAsset(songFolderPath, [
+        parsed.tags.BANNER,
+        parsed.tags.JACKET,
+        parsed.tags.BACKGROUND,
+        parsed.tags.CDIMAGE,
+      ]) ?? findFallbackImage(songFolderPath, simfileStem);
 
     if (!bannerPath || !fs.existsSync(bannerPath) || !fs.statSync(bannerPath).isFile()) {
       return NextResponse.json({ error: "Banner file not found" }, { status: 404 });
