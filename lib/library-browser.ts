@@ -103,21 +103,16 @@ export function getDifficultyTone(slot: BrowseDifficultySlot) {
   }
 }
 
-function getDifficultyColorVar(slot: BrowseDifficultySlot) {
-  switch (slot) {
-    case "Beginner":
-      return "var(--difficulty-beginner)";
-    case "Easy":
-      return "var(--difficulty-easy)";
-    case "Medium":
-      return "var(--difficulty-medium)";
-    case "Hard":
-      return "var(--difficulty-hard)";
-    case "Expert":
-      return "var(--difficulty-expert)";
-    case "Custom":
-      return "var(--difficulty-custom)";
-  }
+function clampDifficultyLevel(level: number) {
+  return Math.max(1, Math.min(20, level));
+}
+
+function getDifficultyRangeColor(level: number) {
+  const clamped = clampDifficultyLevel(level);
+  const capped = Math.min(clamped, 15);
+  const ratio = (capped - 1) / 14;
+  const hue = 120 - ratio * 120;
+  return `hsl(${hue} 68% 52%)`;
 }
 
 export function getDifficultyRange(song: Pick<BrowseSongRecord, "difficulties">) {
@@ -138,10 +133,10 @@ export function getDifficultyGradient(song: Pick<BrowseSongRecord, "difficulties
     return "var(--bg-muted-strong)";
   }
 
-  const lowColor = getDifficultyColorVar(low.slot);
-  const highColor = getDifficultyColorVar(high.slot);
+  const lowColor = getDifficultyRangeColor(low.level);
+  const highColor = getDifficultyRangeColor(high.level);
 
-  if (low.slot === high.slot) {
+  if (low.level === high.level) {
     return lowColor;
   }
 
