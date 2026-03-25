@@ -643,104 +643,107 @@ export function BrowseScreen() {
       )}
 
       {filtersOpen ? (
-        <section className="card filterCard" ref={filtersRef}>
-          <div className="splitRow filterHeader">
-            <h3>Filters</h3>
-            {hasActiveFilters ? (
-              <button
-                className="textButton"
-                onClick={() => setFilters(defaultFilters)}
-                type="button"
-              >
-                Clear
-              </button>
-            ) : null}
-          </div>
+        <div className="filterOverlay" aria-hidden="true">
+          <div className="filterOverlayScrim" />
+          <section className="card filterCard" ref={filtersRef}>
+            <div className="splitRow filterHeader">
+              <h3>Filters</h3>
+              {hasActiveFilters ? (
+                <button
+                  className="textButton"
+                  onClick={() => setFilters(defaultFilters)}
+                  type="button"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
 
-          <div className="filterGroup">
-            <div className="splitRow">
-              <span>Difficulty Range</span>
-              <span className="muted">
-                {filters.minDifficulty} - {filters.maxDifficulty}
-              </span>
+            <div className="filterGroup">
+              <div className="splitRow">
+                <span>Difficulty Range</span>
+                <span className="muted">
+                  {filters.minDifficulty} - {filters.maxDifficulty}
+                </span>
+              </div>
+              <div className="rangeGrid">
+                <label>
+                  <span className="inputLabel">Min</span>
+                  <input
+                    max={filters.maxDifficulty}
+                    min={1}
+                    onChange={(event) =>
+                      setFilters((current) => ({
+                        ...current,
+                        minDifficulty: Number(event.target.value),
+                      }))
+                    }
+                    type="range"
+                    value={filters.minDifficulty}
+                  />
+                </label>
+                <label>
+                  <span className="inputLabel">Max</span>
+                  <input
+                    max={25}
+                    min={filters.minDifficulty}
+                    onChange={(event) =>
+                      setFilters((current) => ({
+                        ...current,
+                        maxDifficulty: Number(event.target.value),
+                      }))
+                    }
+                    type="range"
+                    value={filters.maxDifficulty}
+                  />
+                </label>
+              </div>
             </div>
-            <div className="rangeGrid">
-              <label>
-                <span className="inputLabel">Min</span>
-                <input
-                  max={filters.maxDifficulty}
-                  min={1}
-                  onChange={(event) =>
-                    setFilters((current) => ({
-                      ...current,
-                      minDifficulty: Number(event.target.value),
-                    }))
-                  }
-                  type="range"
-                  value={filters.minDifficulty}
-                />
-              </label>
-              <label>
-                <span className="inputLabel">Max</span>
-                <input
-                  max={25}
-                  min={filters.minDifficulty}
-                  onChange={(event) =>
-                    setFilters((current) => ({
-                      ...current,
-                      maxDifficulty: Number(event.target.value),
-                    }))
-                  }
-                  type="range"
-                  value={filters.maxDifficulty}
-                />
-              </label>
-            </div>
-          </div>
 
-          <div className="filterGroup">
-            <div className="splitRow">
-              <span>BPM Range</span>
-              <span className="muted">
-                {filters.minBpm} - {filters.maxBpm}
-              </span>
+            <div className="filterGroup">
+              <div className="splitRow">
+                <span>BPM Range</span>
+                <span className="muted">
+                  {filters.minBpm} - {filters.maxBpm}
+                </span>
+              </div>
+              <div className="rangeGrid">
+                <label>
+                  <span className="inputLabel">Min</span>
+                  <input
+                    max={filters.maxBpm}
+                    min={100}
+                    onChange={(event) =>
+                      setFilters((current) => ({
+                        ...current,
+                        minBpm: Number(event.target.value),
+                      }))
+                    }
+                    step={5}
+                    type="range"
+                    value={filters.minBpm}
+                  />
+                </label>
+                <label>
+                  <span className="inputLabel">Max</span>
+                  <input
+                    max={450}
+                    min={filters.minBpm}
+                    onChange={(event) =>
+                      setFilters((current) => ({
+                        ...current,
+                        maxBpm: Number(event.target.value),
+                      }))
+                    }
+                    step={5}
+                    type="range"
+                    value={filters.maxBpm}
+                  />
+                </label>
+              </div>
             </div>
-            <div className="rangeGrid">
-              <label>
-                <span className="inputLabel">Min</span>
-                <input
-                  max={filters.maxBpm}
-                  min={100}
-                  onChange={(event) =>
-                    setFilters((current) => ({
-                      ...current,
-                      minBpm: Number(event.target.value),
-                    }))
-                  }
-                  step={5}
-                  type="range"
-                  value={filters.minBpm}
-                />
-              </label>
-              <label>
-                <span className="inputLabel">Max</span>
-                <input
-                  max={450}
-                  min={filters.minBpm}
-                  onChange={(event) =>
-                    setFilters((current) => ({
-                      ...current,
-                      maxBpm: Number(event.target.value),
-                    }))
-                  }
-                  step={5}
-                  type="range"
-                  value={filters.maxBpm}
-                />
-              </label>
-            </div>
-          </div>
-        </section>
+          </section>
+        </div>
       ) : null}
 
       {songsModeActive ? (

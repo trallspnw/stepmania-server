@@ -458,7 +458,29 @@
 }
 
 .root :global(.filterCard) {
+  position: fixed;
+  top: 9.8rem;
+  left: 50%;
+  z-index: 26;
+  width: min(calc(100vw - 2rem), calc(var(--shell-width) - 2rem));
+  max-height: calc(100vh - 12rem);
+  overflow: auto;
+  transform: translateX(-50%);
   background: var(--bg-card-strong);
+  box-shadow: 0 18px 42px rgba(84, 59, 39, 0.16);
+}
+
+.root :global(.filterOverlay) {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+}
+
+.root :global(.filterOverlayScrim) {
+  position: absolute;
+  inset: 0;
+  background: rgba(31, 22, 13, 0.12);
+  backdrop-filter: blur(4px);
 }
 
 .root :global(.filterHeader) {
@@ -937,5 +959,11 @@
 
   .root :global(.screenBody) {
     padding-bottom: 6.7rem;
+  }
+
+  .root :global(.filterCard) {
+    top: 9.4rem;
+    width: calc(100vw - 1.8rem);
+    max-height: calc(100vh - 11.4rem);
   }
 }
