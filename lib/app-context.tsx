@@ -7,10 +7,13 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react";
 import { HistoryEntry, initialHistoryEntries } from "@/lib/mock-data";
 import type { QueueEntryRecord, QueueResponse } from "@/lib/queue-types";
+
+const QUEUE_POLL_INTERVAL_MS = 5000;
 
 interface AppState {
   currentPlayerId: string;
@@ -69,9 +72,18 @@ export function AppProvider({
   const [queueEntries, setQueueEntries] = useState<QueueEntryRecord[]>([]);
   const [queueLoading, setQueueLoading] = useState(true);
   const [queueError, setQueueError] = useState<string | null>(null);
+  const queueRefreshInFlightRef = useRef(false);
 
-  async function refreshQueue() {
-    setQueueLoading(true);
+  async function refreshQueue(options?: { silent?: boolean }) {
+    if (queueRefreshInFlightRef.current) {
+      return;
+    }
+
+    queueRefreshInFlightRef.current = true;
+
+    if (!options?.silent) {
+      setQueueLoading(true);
+    }
 
     try {
       const response = await fetch("/api/queue", {
@@ -90,12 +102,26 @@ export function AppProvider({
     } catch (error) {
       setQueueError(error instanceof Error ? error.message : "Failed to load queue.");
     } finally {
-      setQueueLoading(false);
+      queueRefreshInFlightRef.current = false;
+
+      if (!options?.silent) {
+        setQueueLoading(false);
+      }
     }
   }
 
   useEffect(() => {
     void refreshQueue();
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void refreshQueue({ silent: true });
+    }, QUEUE_POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(interval);
+    };
   }, []);
 
   const contextValue = useMemo<AppContextValue>(

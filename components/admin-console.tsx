@@ -24,6 +24,7 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToastMessage, ToastViewport } from "@/components/ui/toast";
+import type { QueueEntryRecord, QueueResponse } from "@/lib/queue-types";
 
 type AdminUser = {
   id: number;
@@ -58,6 +59,13 @@ type CurrentSongSettings = {
   difficulty: string;
   playerId: string;
   libraryGameMode: string;
+};
+
+type MachineTestResponse = {
+  endpoint: string;
+  status: number;
+  ok: boolean;
+  body: string;
 };
 
 type PackIngestResult = {
@@ -205,6 +213,9 @@ export function AdminConsole({
   const [revokeTokenRecord, setRevokeTokenRecord] = useState<MachineTokenRecord | null>(null);
   const [activeUsers, setActiveUsers] = useState<ActiveUserOption[]>([]);
   const [currentSongLoading, setCurrentSongLoading] = useState(true);
+  const [adminQueueEntries, setAdminQueueEntries] = useState<QueueEntryRecord[]>([]);
+  const [adminQueueLoading, setAdminQueueLoading] = useState(false);
+  const [clearQueueDialogOpen, setClearQueueDialogOpen] = useState(false);
   const [ingestionStatus, setIngestionStatus] = useState<IngestionStatus | null>(null);
   const [libraryPacks, setLibraryPacks] = useState<LibraryPacksResponse | null>(null);
   const [libraryPage, setLibraryPage] = useState(1);
@@ -219,6 +230,10 @@ export function AdminConsole({
     playerId: "",
     libraryGameMode: "dance-single",
   });
+  const [machineTestToken, setMachineTestToken] = useState("");
+  const [machineFinishScore, setMachineFinishScore] = useState("100.00");
+  const [machineFinishGrade, setMachineFinishGrade] = useState("A");
+  const [machineTestResponse, setMachineTestResponse] = useState<MachineTestResponse | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const nextToastId = useRef(1);
@@ -274,6 +289,30 @@ export function AdminConsole({
 
     const data = (await response.json()) as LibrarySongsResponse;
     setLibrarySongs(data);
+  }
+
+  async function loadAdminQueue(options?: { silent?: boolean }) {
+    if (!options?.silent) {
+      setAdminQueueLoading(true);
+    }
+
+    const response = await fetch("/api/admin/queue", {
+      cache: "no-store",
+    });
+
+    if (!options?.silent) {
+      setAdminQueueLoading(false);
+    }
+
+    if (!response.ok) {
+      if (!options?.silent) {
+        pushToast("Failed to load queue", "destructive");
+      }
+      return;
+    }
+
+    const data = (await response.json()) as QueueResponse;
+    setAdminQueueEntries(data.entries);
   }
 
   useEffect(() => {
@@ -367,6 +406,22 @@ export function AdminConsole({
 
     void loadLibrarySongs(selectedPack.id, librarySongsPage);
   }, [activeTab, selectedPack, librarySongsPage]);
+
+  useEffect(() => {
+    if (activeTab !== "queue") {
+      return;
+    }
+
+    void loadAdminQueue();
+
+    const interval = window.setInterval(() => {
+      void loadAdminQueue({ silent: true });
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [activeTab]);
 
   useEffect(() => {
     if (!ingestionStatus) {
@@ -742,6 +797,100 @@ export function AdminConsole({
     pushToast("Library ingestion is already running");
   }
 
+  async function callMachineApi(input: {
+    endpoint: string;
+    method?: "GET" | "POST";
+    body?: Record<string, unknown>;
+    loadingKey: string;
+  }) {
+    setLoadingId(input.loadingKey);
+
+    try {
+      const token = machineTestToken.trim();
+      const response = await fetch(input.endpoint, {
+        method: input.method ?? "GET",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(input.body ? { "Content-Type": "application/json" } : {}),
+        },
+        body: input.body ? JSON.stringify(input.body) : undefined,
+      });
+
+      const responseText = await response.text();
+      let formattedBody = responseText;
+
+      try {
+        formattedBody = JSON.stringify(JSON.parse(responseText), null, 2);
+      } catch {
+        formattedBody = responseText || "(empty)";
+      }
+
+      setMachineTestResponse({
+        endpoint: input.endpoint,
+        status: response.status,
+        ok: response.ok,
+        body: formattedBody,
+      });
+
+      pushToast(
+        response.ok
+          ? `${input.method ?? "GET"} ${input.endpoint} succeeded`
+          : `${input.method ?? "GET"} ${input.endpoint} failed`,
+        response.ok ? "default" : "destructive",
+      );
+    } catch (error) {
+      setMachineTestResponse({
+        endpoint: input.endpoint,
+        status: 0,
+        ok: false,
+        body: error instanceof Error ? error.message : "Request failed",
+      });
+      pushToast(`Request failed for ${input.endpoint}`, "destructive");
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  async function removeAdminQueueEntry(entryId: number) {
+    setLoadingId(`remove-queue-entry-${entryId}`);
+
+    const response = await fetch(`/api/admin/queue/${entryId}`, {
+      method: "DELETE",
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      pushToast(data.error ?? "Failed to remove queue entry", "destructive");
+      return;
+    }
+
+    const data = (await response.json()) as QueueResponse;
+    setAdminQueueEntries(data.entries);
+    pushToast("Queue entry removed");
+  }
+
+  async function clearAdminQueue() {
+    setLoadingId("clear-queue");
+
+    const response = await fetch("/api/admin/queue", {
+      method: "DELETE",
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      pushToast(data.error ?? "Failed to clear queue", "destructive");
+      return;
+    }
+
+    setAdminQueueEntries([]);
+    setClearQueueDialogOpen(false);
+    pushToast("Queue cleared");
+  }
+
   return (
     <main className="relative min-h-screen px-4 py-8">
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(232,138,89,0.28),transparent_28%),radial-gradient(circle_at_top_right,rgba(111,154,214,0.2),transparent_22%),linear-gradient(180deg,#f5f0e8_0%,#ece8df_100%)]" />
@@ -768,6 +917,7 @@ export function AdminConsole({
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="library">Library</TabsTrigger>
             <TabsTrigger value="queue">Queue</TabsTrigger>
+            <TabsTrigger value="test">Test</TabsTrigger>
             <TabsTrigger value="system">System</TabsTrigger>
           </TabsList>
 
@@ -1321,9 +1471,278 @@ export function AdminConsole({
           </TabsContent>
 
           <TabsContent value="queue">
-            <section className="rounded-2xl border border-stone-200 bg-white/85 p-5 shadow-lg shadow-stone-900/5">
-              <h2 className="text-xl font-semibold text-stone-950">Queue</h2>
-              <p className="mt-2 text-sm text-stone-600">Coming soon.</p>
+            <section className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <CardTitle>Queue</CardTitle>
+                      <CardDescription>
+                        Inspect the shared queue and remove any entry as admin.
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        disabled={adminQueueLoading}
+                        onClick={() => void loadAdminQueue()}
+                        type="button"
+                        variant="outline"
+                      >
+                        <RefreshCw className={adminQueueLoading ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
+                        Refresh
+                      </Button>
+                      <Button
+                        disabled={loadingId === "clear-queue" || adminQueueEntries.length === 0}
+                        onClick={() => setClearQueueDialogOpen(true)}
+                        type="button"
+                        variant="outline"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Clear Queue
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-sm text-stone-600">
+                    {adminQueueEntries.length} queued item{adminQueueEntries.length === 1 ? "" : "s"}
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-stone-200">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Order</TableHead>
+                          <TableHead>Song</TableHead>
+                          <TableHead>Chart</TableHead>
+                          <TableHead>Player</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Queued</TableHead>
+                          <TableHead className="min-w-[120px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {adminQueueLoading && adminQueueEntries.length === 0 ? (
+                          <TableRow>
+                            <TableCell className="text-stone-600" colSpan={7}>
+                              Loading queue...
+                            </TableCell>
+                          </TableRow>
+                        ) : adminQueueEntries.length === 0 ? (
+                          <TableRow>
+                            <TableCell className="text-stone-600" colSpan={7}>
+                              Queue is empty.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          adminQueueEntries.map((entry, index) => (
+                            <TableRow key={entry.id}>
+                              <TableCell className="text-stone-600">#{index + 1}</TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <div className="font-medium text-stone-900">{entry.song.title}</div>
+                                  <div className="text-sm text-stone-600">{entry.song.artist}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-stone-600">
+                                {entry.chart.difficultySlot} {entry.chart.meter}
+                              </TableCell>
+                              <TableCell className="text-stone-600">{entry.user.displayName}</TableCell>
+                              <TableCell>
+                                <Badge variant={entry.status === "playing" ? "blue" : "gray"}>
+                                  {entry.status === "playing" ? "Playing" : "Queued"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-stone-600">
+                                {formatRelativeTime(entry.createdAt)}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  disabled={loadingId === `remove-queue-entry-${entry.id}`}
+                                  onClick={() => void removeAdminQueueEntry(entry.id)}
+                                  size="sm"
+                                  type="button"
+                                  variant="outline"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Remove
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="test">
+            <section className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Machine API Test</CardTitle>
+                  <CardDescription>
+                    Call machine-facing APIs directly from the admin UI using a bearer token.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="machine-test-token">Machine Token</Label>
+                    <Input
+                      id="machine-test-token"
+                      onChange={(event) => setMachineTestToken(event.target.value)}
+                      placeholder="Paste full machine token"
+                      value={machineTestToken}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {generatedMachineToken ? (
+                        <Button
+                          onClick={() => {
+                            setMachineTestToken(generatedMachineToken.token);
+                            pushToast("Filled machine token from the latest generated token");
+                          }}
+                          type="button"
+                          variant="outline"
+                        >
+                          Use Latest Generated Token
+                        </Button>
+                      ) : null}
+                      <p className="text-xs text-stone-500">
+                        Existing tokens only store prefixes in the admin list, so pasting the full token is required unless you just generated one.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Button
+                      disabled={loadingId === "machine-current"}
+                      onClick={() =>
+                        void callMachineApi({
+                          endpoint: "/api/game/song/current",
+                          loadingKey: "machine-current",
+                        })
+                      }
+                      type="button"
+                      variant="outline"
+                    >
+                      {loadingId === "machine-current" ? (
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      GET Current
+                    </Button>
+                    <Button
+                      disabled={loadingId === "machine-start"}
+                      onClick={() =>
+                        void callMachineApi({
+                          endpoint: "/api/game/song/start",
+                          method: "POST",
+                          loadingKey: "machine-start",
+                        })
+                      }
+                      type="button"
+                      variant="outline"
+                    >
+                      {loadingId === "machine-start" ? (
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      POST Start
+                    </Button>
+                    <Button
+                      disabled={loadingId === "machine-skip"}
+                      onClick={() =>
+                        void callMachineApi({
+                          endpoint: "/api/game/song/skip",
+                          method: "POST",
+                          loadingKey: "machine-skip",
+                        })
+                      }
+                      type="button"
+                      variant="outline"
+                    >
+                      {loadingId === "machine-skip" ? (
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      POST Skip
+                    </Button>
+                  </div>
+
+                  <div className="space-y-4 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-stone-950">Finish Payload</h3>
+                      <p className="text-sm text-stone-600">
+                        Submit a machine-style finish event with decimal score and grade.
+                      </p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="machine-finish-score">Score</Label>
+                        <Input
+                          id="machine-finish-score"
+                          inputMode="decimal"
+                          onChange={(event) => setMachineFinishScore(event.target.value)}
+                          placeholder="100.00"
+                          value={machineFinishScore}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="machine-finish-grade">Grade</Label>
+                        <Input
+                          id="machine-finish-grade"
+                          onChange={(event) => setMachineFinishGrade(event.target.value)}
+                          placeholder="A"
+                          value={machineFinishGrade}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Button
+                        disabled={loadingId === "machine-finish"}
+                        onClick={() =>
+                          void callMachineApi({
+                            endpoint: "/api/game/song/finish",
+                            method: "POST",
+                            body: {
+                              score: Number(machineFinishScore),
+                              grade: machineFinishGrade,
+                            },
+                            loadingKey: "machine-finish",
+                          })
+                        }
+                        type="button"
+                      >
+                        {loadingId === "machine-finish" ? (
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        ) : null}
+                        POST Finish
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-stone-950">Response</h3>
+                      {machineTestResponse ? (
+                        <Badge variant={machineTestResponse.ok ? "green" : "red"}>
+                          {machineTestResponse.status || "ERR"}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <div className="rounded-xl border border-stone-200 bg-stone-950 p-4">
+                      <div className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-stone-400">
+                        {machineTestResponse
+                          ? `${machineTestResponse.endpoint}`
+                          : "No request yet"}
+                      </div>
+                      <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap break-words text-sm text-stone-100">
+                        {machineTestResponse?.body ?? "Run a machine API request to inspect the raw response here."}
+                      </pre>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </section>
           </TabsContent>
 
@@ -1584,6 +2003,40 @@ export function AdminConsole({
                 </>
               ) : (
                 "Generate"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={setClearQueueDialogOpen} open={clearQueueDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear Queue</DialogTitle>
+            <DialogDescription>
+              Remove all queued and currently playing songs from the shared queue. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setClearQueueDialogOpen(false)}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={loadingId === "clear-queue"}
+              onClick={() => void clearAdminQueue()}
+              type="button"
+            >
+              {loadingId === "clear-queue" ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Clearing
+                </>
+              ) : (
+                "Clear Queue"
               )}
             </Button>
           </DialogFooter>

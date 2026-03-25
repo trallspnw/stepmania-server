@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateMachineToken } from "@/lib/machineAuth";
+import { getCurrentQueueEntry } from "@/lib/queue-server";
 import { getSetting } from "@/lib/settings";
 import { SETTING_KEYS } from "@/lib/settingKeys";
 
@@ -37,7 +38,10 @@ export async function GET(request: Request) {
     return new NextResponse(null, { status: 401 });
   }
 
-  const songPath = (await getSetting(SETTING_KEYS.CURRENT_SONG_PATH))?.trim() ?? "";
+  const currentQueueEntry = await getCurrentQueueEntry();
+  const songPath =
+    currentQueueEntry?.song.filePath ??
+    ((await getSetting(SETTING_KEYS.CURRENT_SONG_PATH))?.trim() ?? "");
 
   if (!songPath) {
     console.info("[machine] game.song.current.read", {
@@ -55,10 +59,13 @@ export async function GET(request: Request) {
     });
   }
 
-  const [difficulty, currentPlayerId] = await Promise.all([
+  const [fallbackDifficulty, fallbackPlayerId] = await Promise.all([
     getSetting(SETTING_KEYS.CURRENT_SONG_DIFFICULTY),
     getSetting(SETTING_KEYS.CURRENT_PLAYER_ID),
   ]);
+
+  const difficulty = currentQueueEntry?.chart.difficultySlot ?? fallbackDifficulty;
+  const currentPlayerId = currentQueueEntry ? String(currentQueueEntry.user.id) : fallbackPlayerId;
 
   const parsedPlayerId = currentPlayerId ? Number.parseInt(currentPlayerId, 10) : null;
   const player =
@@ -74,7 +81,12 @@ export async function GET(request: Request) {
       : null;
 
   const activePlayer =
-    player && player.isActive
+    currentQueueEntry
+      ? {
+          id: currentQueueEntry.user.id,
+          display_name: currentQueueEntry.user.displayName,
+        }
+      : player && player.isActive
       ? {
           id: player.id,
           display_name: player.displayName,
