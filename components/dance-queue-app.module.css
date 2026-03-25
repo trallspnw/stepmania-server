@@ -879,6 +879,11 @@
   font-weight: 700;
 }
 
+.root :global(.appCanvas button.primaryButton) {
+  background: rgba(38, 31, 23, 0.94);
+  color: #fff;
+}
+
 .root :global(.primaryButton:disabled) {
   opacity: 0.7;
   cursor: default;
