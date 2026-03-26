@@ -44,6 +44,10 @@ type FolderView =
   | { type: "artist"; value: string }
   | null;
 
+type FolderHistoryState = {
+  browseFolderView?: Exclude<FolderView, null>;
+};
+
 interface Filters {
   minDifficulty: number | null;
   maxDifficulty: number | null;
@@ -177,6 +181,19 @@ export function BrowseScreen() {
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const filtersRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    function handlePopState(event: PopStateEvent) {
+      const state = (event.state ?? null) as FolderHistoryState | null;
+      setFolderView(state?.browseFolderView ?? null);
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
   useEffect(() => {
     if (!justAdded) return;
@@ -614,6 +631,30 @@ export function BrowseScreen() {
     setSelectedDifficulty(song.difficulties[0] ?? null);
   }
 
+  function openFolder(nextFolderView: Exclude<FolderView, null>) {
+    window.history.pushState(
+      { browseFolderView: nextFolderView } satisfies FolderHistoryState,
+      "",
+      window.location.href,
+    );
+    setFolderView(nextFolderView);
+  }
+
+  function closeFolder() {
+    if (!folderView) {
+      return;
+    }
+
+    const state = (window.history.state ?? null) as FolderHistoryState | null;
+
+    if (state?.browseFolderView) {
+      window.history.back();
+      return;
+    }
+
+    setFolderView(null);
+  }
+
   async function addSelectedSong() {
     if (!selectedSong || !selectedDifficulty) return;
 
@@ -707,7 +748,7 @@ export function BrowseScreen() {
         <div className="toolbar">
           <button
             className="iconButton"
-            onClick={() => setFolderView(null)}
+            onClick={closeFolder}
             type="button"
           >
             <ArrowLeftIcon className="tinyIcon" />
@@ -954,7 +995,7 @@ export function BrowseScreen() {
                   className="folderRow"
                   key={pack.id}
                   onClick={() =>
-                    setFolderView({
+                    openFolder({
                       type: "pack",
                       packId: pack.id,
                       value: pack.title,
@@ -988,7 +1029,7 @@ export function BrowseScreen() {
                   className="folderRow"
                   key={artist.name}
                   onClick={() =>
-                    setFolderView({
+                    openFolder({
                       type: "artist",
                       value: artist.name,
                     })
