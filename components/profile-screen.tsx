@@ -17,17 +17,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToastMessage, ToastViewport } from "@/components/ui/toast";
 import { useApp } from "@/lib/app-context";
-import {
-  formatRelativeTime,
-  getDifficultyTone,
-  getGradeTone,
-  getPlayerById,
-  getSongById,
-} from "@/lib/mock-data";
+import { formatRelativeTime, getDifficultyTone, getGradeTone } from "@/lib/mock-data";
 
 export function ProfileScreen() {
-  const { state, currentUser, queueEntries, queueLoading } = useApp();
-  const currentPlayer = getPlayerById(state.currentPlayerId);
+  const { currentUser, historyEntries, historyLoading, queueEntries, queueLoading } = useApp();
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -38,19 +31,8 @@ export function ProfileScreen() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const nextToastId = useRef(1);
 
-  if (!currentPlayer) {
-    return (
-      <div className="emptyState">
-        <h2>Signed Out</h2>
-        <p>You have been signed out.</p>
-      </div>
-    );
-  }
-
   const myQueueEntries = queueEntries.filter((entry) => entry.user.id === currentUser.id);
-  const myHistoryEntries = state.historyEntries.filter(
-    (entry) => entry.playerId === state.currentPlayerId,
-  );
+  const myHistoryEntries = historyEntries.filter((entry) => entry.user.id === currentUser.id);
 
   function pushToast(title: string, variant: ToastMessage["variant"] = "default") {
     const id = nextToastId.current;
@@ -164,27 +146,28 @@ export function ProfileScreen() {
             <span>My History ({myHistoryEntries.length})</span>
           </div>
         </header>
-        {myHistoryEntries.length === 0 ? (
+        {historyLoading ? (
+          <p className="muted">Loading history...</p>
+        ) : myHistoryEntries.length === 0 ? (
           <p className="muted">No play history yet.</p>
         ) : (
           <div className="stack tight">
             {myHistoryEntries.map((entry) => {
-              const song = getSongById(entry.songId);
-              if (!song) return null;
-
               return (
                 <div className="splitRow" key={entry.id}>
                   <div>
-                    <h3>{song.title}</h3>
+                    <h3>{entry.song.title}</h3>
                     <div className="metaRow wrap">
-                      <span className={`pill ${getDifficultyTone(entry.playedDifficulty.slot)}`}>
-                        {entry.playedDifficulty.level}
+                      <span className={`pill ${getDifficultyTone(entry.chart.difficultySlot)}`}>
+                        {entry.chart.difficultySlot} {entry.chart.meter}
                       </span>
-                      <span className="muted">{formatRelativeTime(entry.completedAt)}</span>
+                      {entry.score != null ? <span className="muted">{entry.score.toFixed(2)}%</span> : null}
+                      {entry.isTest ? <span className="softPill">Test</span> : null}
+                      <span className="muted">{formatRelativeTime(new Date(entry.playedAt))}</span>
                     </div>
                   </div>
-                  <span className={`pill gradePill ${getGradeTone(entry.grade)}`}>
-                    {entry.grade}
+                  <span className={`pill gradePill ${getGradeTone(entry.grade ?? "C")}`}>
+                    {entry.grade ?? "-"}
                   </span>
                 </div>
               );

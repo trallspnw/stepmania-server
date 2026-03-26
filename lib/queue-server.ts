@@ -372,3 +372,42 @@ export async function consumeCurrentQueueEntry() {
     };
   });
 }
+
+export async function finishCurrentQueueEntry(input: {
+  score: number;
+  grade: string;
+  isTest?: boolean;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const currentEntry = await getCurrentQueueEntryInTx(tx);
+
+    if (!currentEntry) {
+      return null;
+    }
+
+    await tx.playHistory.create({
+      data: {
+        songId: currentEntry.song.id,
+        chartId: currentEntry.chart.id,
+        userId: currentEntry.user.id,
+        score: input.score,
+        grade: input.grade,
+        isTest: input.isTest ?? false,
+      },
+    });
+
+    await tx.queueEntry.delete({
+      where: {
+        id: currentEntry.id,
+      },
+    });
+
+    await recomputeQueuedPlayOrder(tx);
+    const nextEntry = await syncCurrentSongSettingsToQueue(tx);
+
+    return {
+      removed: currentEntry,
+      next: nextEntry,
+    };
+  });
+}

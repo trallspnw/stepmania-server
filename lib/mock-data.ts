@@ -5,7 +5,7 @@ export type DifficultySlot =
   | "Hard"
   | "Expert"
   | "Custom";
-export type Grade = "S" | "A" | "B" | "C";
+export type Grade = "AAA" | "AA" | "A" | "B" | "C" | "D" | "E" | "F" | "S";
 
 export interface Player {
   id: string;
@@ -585,8 +585,12 @@ export function getDifficultyGradient(song: Song) {
   return `linear-gradient(180deg, ${lowColor} 0%, ${highColor} 100%)`;
 }
 
-export function getGradeTone(grade: Grade) {
-  switch (grade) {
+export function getGradeTone(grade: Grade | string) {
+  const normalized = grade.trim().toUpperCase();
+
+  switch (normalized) {
+    case "AAA":
+    case "AA":
     case "S":
       return "grade-s";
     case "A":
@@ -594,6 +598,11 @@ export function getGradeTone(grade: Grade) {
     case "B":
       return "grade-b";
     case "C":
+    case "D":
+    case "E":
+    case "F":
+      return "grade-c";
+    default:
       return "grade-c";
   }
 }

@@ -10,7 +10,13 @@
 
 import { NextResponse } from "next/server";
 import { validateMachineToken } from "@/lib/machineAuth";
-import { consumeCurrentQueueEntry } from "@/lib/queue-server";
+import {
+  getServerHighScore,
+  getUserHighScore,
+  recordPlayHistory,
+  resolveSongChartByPath,
+} from "@/lib/play-history";
+import { finishCurrentQueueEntry } from "@/lib/queue-server";
 import { getSetting, setSettings } from "@/lib/settings";
 import { SETTING_KEYS } from "@/lib/settingKeys";
 
@@ -23,6 +29,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const score = Number(body?.score);
+  const isTest = body?.test === true;
   const grade =
     typeof body?.grade === "string"
       ? body.grade.trim()
@@ -42,14 +49,27 @@ export async function POST(request: Request) {
     );
   }
 
-  const consumed = await consumeCurrentQueueEntry();
+  const consumed = await finishCurrentQueueEntry({ score, grade, isTest });
 
   if (consumed) {
+    const [userHighScore, serverHighScore] = await Promise.all([
+      getUserHighScore({
+        songId: consumed.removed.song.id,
+        chartId: consumed.removed.chart.id,
+        userId: consumed.removed.user.id,
+      }),
+      getServerHighScore({
+        songId: consumed.removed.song.id,
+        chartId: consumed.removed.chart.id,
+      }),
+    ]);
+
     console.log("[finish] score received:", {
       songPath: consumed.removed.song.filePath,
       playerId: consumed.removed.user.id,
       score,
       grade,
+      isTest,
       playedAt: new Date().toISOString(),
     });
 
@@ -64,12 +84,13 @@ export async function POST(request: Request) {
       nextSongPath: consumed.next?.song.filePath ?? null,
       score,
       grade,
+      isTest,
     });
 
     return NextResponse.json({
-      recorded: false,
-      user_highscore: null,
-      server_highscore: null,
+      recorded: true,
+      user_highscore: userHighScore,
+      server_highscore: serverHighScore,
       next_song: consumed.next
         ? {
             file_path: consumed.next.song.filePath,
@@ -81,6 +102,7 @@ export async function POST(request: Request) {
 
   const currentSongPath = (await getSetting(SETTING_KEYS.CURRENT_SONG_PATH))?.trim() ?? "";
   const currentPlayerId = await getSetting(SETTING_KEYS.CURRENT_PLAYER_ID);
+  const currentDifficulty = await getSetting(SETTING_KEYS.CURRENT_SONG_DIFFICULTY);
 
   if (!currentSongPath) {
     console.info("[machine] game.song.finish", {
@@ -95,12 +117,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No current song set" }, { status: 400 });
   }
 
-  // TODO: when play_history is implemented, insert record here before clearing settings
+  const parsedPlayerId = currentPlayerId ? Number.parseInt(currentPlayerId, 10) : null;
+  const resolvedSongChart = await resolveSongChartByPath({
+    filePath: currentSongPath,
+    difficultyName: currentDifficulty,
+  });
+
+  if (!parsedPlayerId || !Number.isInteger(parsedPlayerId) || !resolvedSongChart) {
+    return NextResponse.json(
+      { error: "Current song context is missing player or chart data" },
+      { status: 400 },
+    );
+  }
+
+  await recordPlayHistory({
+    songId: resolvedSongChart.songId,
+    chartId: resolvedSongChart.chartId,
+    userId: parsedPlayerId,
+    score,
+    grade,
+    isTest,
+  });
+
+  const [userHighScore, serverHighScore] = await Promise.all([
+    getUserHighScore({
+      songId: resolvedSongChart.songId,
+      chartId: resolvedSongChart.chartId,
+      userId: parsedPlayerId,
+    }),
+    getServerHighScore({
+      songId: resolvedSongChart.songId,
+      chartId: resolvedSongChart.chartId,
+    }),
+  ]);
+
   console.log("[finish] score received:", {
     songPath: currentSongPath,
     playerId: currentPlayerId,
     score,
     grade,
+    isTest,
     playedAt: new Date().toISOString(),
   });
 
@@ -119,12 +175,12 @@ export async function POST(request: Request) {
     playerId: currentPlayerId,
     score,
     grade,
+    isTest,
   });
 
-  // TODO: when play_history is implemented, query updated high scores and return here
   return NextResponse.json({
-    recorded: false,
-    user_highscore: null,
-    server_highscore: null,
+    recorded: true,
+    user_highscore: userHighScore,
+    server_highscore: serverHighScore,
   });
 }

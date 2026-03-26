@@ -24,6 +24,7 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToastMessage, ToastViewport } from "@/components/ui/toast";
+import type { HistoryRecord } from "@/lib/history-types";
 import type { QueueEntryRecord, QueueResponse } from "@/lib/queue-types";
 
 type AdminUser = {
@@ -79,6 +80,11 @@ type AggregateSongIngestResult = {
 type ChartIngestResult = {
   created: number;
   deleted: number;
+};
+
+type AdminHistoryResponse = {
+  entries: HistoryRecord[];
+  testCount: number;
 };
 
 type IngestionStatus = {
@@ -207,6 +213,10 @@ export function AdminConsole({
   const [adminQueueEntries, setAdminQueueEntries] = useState<QueueEntryRecord[]>([]);
   const [adminQueueLoading, setAdminQueueLoading] = useState(false);
   const [clearQueueDialogOpen, setClearQueueDialogOpen] = useState(false);
+  const [adminHistoryEntries, setAdminHistoryEntries] = useState<HistoryRecord[]>([]);
+  const [adminHistoryLoading, setAdminHistoryLoading] = useState(false);
+  const [adminTestHistoryCount, setAdminTestHistoryCount] = useState(0);
+  const [clearTestHistoryDialogOpen, setClearTestHistoryDialogOpen] = useState(false);
   const [ingestionStatus, setIngestionStatus] = useState<IngestionStatus | null>(null);
   const [libraryPacks, setLibraryPacks] = useState<LibraryPacksResponse | null>(null);
   const [libraryPage, setLibraryPage] = useState(1);
@@ -301,6 +311,31 @@ export function AdminConsole({
 
     const data = (await response.json()) as QueueResponse;
     setAdminQueueEntries(data.entries);
+  }
+
+  async function loadAdminHistory(options?: { silent?: boolean }) {
+    if (!options?.silent) {
+      setAdminHistoryLoading(true);
+    }
+
+    const response = await fetch("/api/admin/history", {
+      cache: "no-store",
+    });
+
+    if (!options?.silent) {
+      setAdminHistoryLoading(false);
+    }
+
+    if (!response.ok) {
+      if (!options?.silent) {
+        pushToast("Failed to load play history", "destructive");
+      }
+      return;
+    }
+
+    const data = (await response.json()) as AdminHistoryResponse;
+    setAdminHistoryEntries(data.entries);
+    setAdminTestHistoryCount(data.testCount);
   }
 
   useEffect(() => {
@@ -404,6 +439,22 @@ export function AdminConsole({
 
     const interval = window.setInterval(() => {
       void loadAdminQueue({ silent: true });
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "history") {
+      return;
+    }
+
+    void loadAdminHistory();
+
+    const interval = window.setInterval(() => {
+      void loadAdminHistory({ silent: true });
     }, 5000);
 
     return () => {
@@ -862,6 +913,28 @@ export function AdminConsole({
     pushToast("Queue cleared");
   }
 
+  async function clearAdminTestHistory() {
+    setLoadingId("clear-test-history");
+
+    const response = await fetch("/api/admin/history", {
+      method: "DELETE",
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      pushToast(data.error ?? "Failed to clear test history", "destructive");
+      return;
+    }
+
+    const data = (await response.json()) as { deleted: number };
+    setAdminHistoryEntries((current) => current.filter((entry) => !entry.isTest));
+    setAdminTestHistoryCount(0);
+    setClearTestHistoryDialogOpen(false);
+    pushToast(`Deleted ${data.deleted} test history record${data.deleted === 1 ? "" : "s"}`);
+  }
+
   return (
     <main className="relative min-h-screen px-4 py-8">
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(232,138,89,0.28),transparent_28%),radial-gradient(circle_at_top_right,rgba(111,154,214,0.2),transparent_22%),linear-gradient(180deg,#f5f0e8_0%,#ece8df_100%)]" />
@@ -888,6 +961,7 @@ export function AdminConsole({
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="library">Library</TabsTrigger>
             <TabsTrigger value="queue">Queue</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
             <TabsTrigger value="test">Test</TabsTrigger>
             <TabsTrigger value="system">System</TabsTrigger>
           </TabsList>
@@ -1550,6 +1624,107 @@ export function AdminConsole({
             </section>
           </TabsContent>
 
+          <TabsContent value="history">
+            <section className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <CardTitle>Play History</CardTitle>
+                      <CardDescription>
+                        Most recent plays across the server, newest first.
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        disabled={adminHistoryLoading}
+                        onClick={() => void loadAdminHistory()}
+                        type="button"
+                        variant="outline"
+                      >
+                        <RefreshCw className={adminHistoryLoading ? "mr-2 h-4 w-4 animate-spin" : "mr-2 h-4 w-4"} />
+                        Refresh
+                      </Button>
+                      <Button
+                        disabled={loadingId === "clear-test-history" || adminTestHistoryCount === 0}
+                        onClick={() => setClearTestHistoryDialogOpen(true)}
+                        type="button"
+                        variant="outline"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Clear Test History
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-sm text-stone-600">
+                    {adminHistoryEntries.length} recent record{adminHistoryEntries.length === 1 ? "" : "s"}
+                    {adminTestHistoryCount > 0 ? `, ${adminTestHistoryCount} flagged as test` : ""}
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-stone-200">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Finished</TableHead>
+                          <TableHead>Player</TableHead>
+                          <TableHead>Song</TableHead>
+                          <TableHead>Chart</TableHead>
+                          <TableHead>Score</TableHead>
+                          <TableHead>Grade</TableHead>
+                          <TableHead>Flags</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {adminHistoryLoading && adminHistoryEntries.length === 0 ? (
+                          <TableRow>
+                            <TableCell className="text-stone-600" colSpan={7}>
+                              Loading play history...
+                            </TableCell>
+                          </TableRow>
+                        ) : adminHistoryEntries.length === 0 ? (
+                          <TableRow>
+                            <TableCell className="text-stone-600" colSpan={7}>
+                              No play history yet.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          adminHistoryEntries.map((entry) => (
+                            <TableRow key={entry.id}>
+                              <TableCell className="text-stone-600">
+                                {formatRelativeTime(entry.playedAt)}
+                              </TableCell>
+                              <TableCell className="text-stone-600">{entry.user.displayName}</TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <div className="font-medium text-stone-900">{entry.song.title}</div>
+                                  <div className="text-sm text-stone-600">{entry.song.artist}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-stone-600">
+                                {entry.chart.difficultySlot} {entry.chart.meter}
+                              </TableCell>
+                              <TableCell className="text-stone-600">
+                                {entry.score != null ? `${entry.score.toFixed(2)}%` : "-"}
+                              </TableCell>
+                              <TableCell>
+                                {entry.grade ? <Badge variant="gray">{entry.grade}</Badge> : "-"}
+                              </TableCell>
+                              <TableCell>
+                                {entry.isTest ? <Badge variant="red">Test</Badge> : "-"}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+          </TabsContent>
+
           <TabsContent value="test">
             <section className="space-y-6">
               <Card>
@@ -1668,6 +1843,16 @@ export function AdminConsole({
                         />
                       </div>
                     </div>
+                    <label className="flex items-center gap-3 text-sm text-stone-700">
+                      <input
+                        checked
+                        className="h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500"
+                        disabled
+                        readOnly
+                        type="checkbox"
+                      />
+                      <span>Mark this finish as test history</span>
+                    </label>
                     <div>
                       <Button
                         disabled={loadingId === "machine-finish"}
@@ -1678,6 +1863,7 @@ export function AdminConsole({
                             body: {
                               score: Number(machineFinishScore),
                               grade: machineFinishGrade,
+                              test: true,
                             },
                             loadingKey: "machine-finish",
                           })
@@ -1951,6 +2137,40 @@ export function AdminConsole({
                 </>
               ) : (
                 "Clear Queue"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={setClearTestHistoryDialogOpen} open={clearTestHistoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear Test History</DialogTitle>
+            <DialogDescription>
+              Remove all play history records flagged as test. Real play history will be kept.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={() => setClearTestHistoryDialogOpen(false)}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={loadingId === "clear-test-history"}
+              onClick={() => void clearAdminTestHistory()}
+              type="button"
+            >
+              {loadingId === "clear-test-history" ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Clearing
+                </>
+              ) : (
+                "Clear Test History"
               )}
             </Button>
           </DialogFooter>

@@ -119,6 +119,7 @@ model Chart {
   isPrimary      Boolean  @default(false) @map("is_primary")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   queueEntries   QueueEntry[]
+  playHistory    PlayHistory[]
 
   @@unique([songId, gameMode, difficultySlot])
   @@map("charts")
@@ -128,10 +129,13 @@ model PlayHistory {
   id       Int      @id @default(autoincrement())
   songId   Int      @map("song_id")
   song     Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+  chartId  Int      @map("chart_id")
+  chart    Chart    @relation(fields: [chartId], references: [id], onDelete: Cascade)
   userId   Int      @map("user_id")
   user     User     @relation("PlayHistory", fields: [userId], references: [id], onDelete: Cascade)
   score    Decimal? @db.Decimal(5, 2)
   grade    String?
+  isTest   Boolean  @default(false) @map("is_test")
   playedAt DateTime @default(now()) @map("played_at") @db.Timestamptz(6)
 
   @@map("play_history")

@@ -10,15 +10,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { HistoryEntry, initialHistoryEntries } from "@/lib/mock-data";
+import type { HistoryRecord, HistoryResponse } from "@/lib/history-types";
 import type { QueueEntryRecord, QueueResponse } from "@/lib/queue-types";
 
 const QUEUE_POLL_INTERVAL_MS = 5000;
-
-interface AppState {
-  currentPlayerId: string;
-  historyEntries: HistoryEntry[];
-}
+const HISTORY_POLL_INTERVAL_MS = 5000;
 
 interface CurrentUser {
   id: number;
@@ -28,31 +24,21 @@ interface CurrentUser {
 
 type AppAction = { type: "SIGN_OUT" };
 
-const initialState: AppState = {
-  currentPlayerId: "jordan",
-  historyEntries: initialHistoryEntries,
-};
-
-function appReducer(state: AppState, action: AppAction): AppState {
-  switch (action.type) {
-    case "SIGN_OUT":
-      return {
-        ...state,
-        currentPlayerId: "",
-      };
-    default:
-      return state;
-  }
+function appReducer(state: null, _action: AppAction) {
+  return state;
 }
 
 interface AppContextValue {
-  state: AppState;
   currentUser: CurrentUser;
   setCurrentUser: (currentUser: CurrentUser) => void;
   queueEntries: QueueEntryRecord[];
   queueLoading: boolean;
   queueError: string | null;
-  refreshQueue: () => Promise<void>;
+  historyEntries: HistoryRecord[];
+  historyLoading: boolean;
+  historyError: string | null;
+  refreshQueue: (options?: { silent?: boolean }) => Promise<void>;
+  refreshHistory: (options?: { silent?: boolean }) => Promise<void>;
   addToQueue: (songId: number, chartId: number) => Promise<boolean>;
   removeFromQueue: (entryId: number) => Promise<boolean>;
   signOut: () => void;
@@ -67,12 +53,16 @@ export function AppProvider({
   children: ReactNode;
   currentUser: CurrentUser;
 }) {
-  const [state, dispatch] = useReducer(appReducer, initialState);
+  const [, dispatch] = useReducer(appReducer, null);
   const [currentUserState, setCurrentUserState] = useState(currentUser);
   const [queueEntries, setQueueEntries] = useState<QueueEntryRecord[]>([]);
   const [queueLoading, setQueueLoading] = useState(true);
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<HistoryRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const queueRefreshInFlightRef = useRef(false);
+  const historyRefreshInFlightRef = useRef(false);
 
   async function refreshQueue(options?: { silent?: boolean }) {
     if (queueRefreshInFlightRef.current) {
@@ -110,8 +100,45 @@ export function AppProvider({
     }
   }
 
+  async function refreshHistory(options?: { silent?: boolean }) {
+    if (historyRefreshInFlightRef.current) {
+      return;
+    }
+
+    historyRefreshInFlightRef.current = true;
+
+    if (!options?.silent) {
+      setHistoryLoading(true);
+    }
+
+    try {
+      const response = await fetch("/api/history", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "Failed to load history.");
+      }
+
+      const data = (await response.json()) as HistoryResponse;
+      setHistoryEntries(data.entries);
+      setHistoryError(null);
+    } catch (error) {
+      setHistoryError(error instanceof Error ? error.message : "Failed to load history.");
+    } finally {
+      historyRefreshInFlightRef.current = false;
+
+      if (!options?.silent) {
+        setHistoryLoading(false);
+      }
+    }
+  }
+
   useEffect(() => {
     void refreshQueue();
+    void refreshHistory();
   }, []);
 
   useEffect(() => {
@@ -124,15 +151,28 @@ export function AppProvider({
     };
   }, []);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void refreshHistory({ silent: true });
+    }, HISTORY_POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const contextValue = useMemo<AppContextValue>(
     () => ({
-      state,
       currentUser: currentUserState,
       setCurrentUser: setCurrentUserState,
       queueEntries,
       queueLoading,
       queueError,
+      historyEntries,
+      historyLoading,
+      historyError,
       refreshQueue,
+      refreshHistory,
       addToQueue: async (songId, chartId) => {
         const response = await fetch("/api/queue", {
           method: "POST",
@@ -169,7 +209,15 @@ export function AppProvider({
       },
       signOut: () => dispatch({ type: "SIGN_OUT" }),
     }),
-    [currentUserState, queueEntries, queueError, queueLoading, state],
+    [
+      currentUserState,
+      historyEntries,
+      historyError,
+      historyLoading,
+      queueEntries,
+      queueError,
+      queueLoading,
+    ],
   );
 
   return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>;

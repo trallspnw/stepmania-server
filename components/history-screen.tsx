@@ -2,18 +2,36 @@
 
 import { HistoryIcon } from "@/components/icons";
 import { useApp } from "@/lib/app-context";
-import {
-  formatRelativeTime,
-  getDifficultyTone,
-  getGradeTone,
-  getPlayerById,
-  getSongById,
-} from "@/lib/mock-data";
+import { formatRelativeTime, getDifficultyTone, getGradeTone } from "@/lib/mock-data";
 
 export function HistoryScreen() {
-  const { state } = useApp();
+  const { historyEntries, historyError, historyLoading } = useApp();
 
-  if (state.historyEntries.length === 0) {
+  if (historyLoading && historyEntries.length === 0) {
+    return (
+      <div className="emptyState">
+        <div className="emptyStateIcon">
+          <HistoryIcon className="sectionIcon" />
+        </div>
+        <h2>Loading History</h2>
+        <p>Fetching recent plays.</p>
+      </div>
+    );
+  }
+
+  if (historyError && historyEntries.length === 0) {
+    return (
+      <div className="emptyState">
+        <div className="emptyStateIcon">
+          <HistoryIcon className="sectionIcon" />
+        </div>
+        <h2>History Unavailable</h2>
+        <p>{historyError}</p>
+      </div>
+    );
+  }
+
+  if (historyEntries.length === 0) {
     return (
       <div className="emptyState">
         <div className="emptyStateIcon">
@@ -27,31 +45,26 @@ export function HistoryScreen() {
 
   return (
     <div className="stack tight">
-      {state.historyEntries.map((entry) => {
-        const song = getSongById(entry.songId);
-        const player = getPlayerById(entry.playerId);
-
-        if (!song || !player) return null;
-
-        return (
-          <article className="card historyCard" key={entry.id}>
-            <div className="avatar">{player.name.charAt(0)}</div>
-            <div className="historyContent">
-              <h3>{song.title}</h3>
-              <div className="metaRow wrap">
-                <span>{player.name}</span>
-                <span className={`pill ${getDifficultyTone(entry.playedDifficulty.slot)}`}>
-                  {entry.playedDifficulty.level}
-                </span>
-                <span>{formatRelativeTime(entry.completedAt)}</span>
-              </div>
+      {historyEntries.map((entry) => (
+        <article className="card historyCard" key={entry.id}>
+          <div className="avatar">{entry.user.displayName.charAt(0)}</div>
+          <div className="historyContent">
+            <h3>{entry.song.title}</h3>
+            <div className="metaRow wrap">
+              <span>{entry.user.displayName}</span>
+              <span className={`pill ${getDifficultyTone(entry.chart.difficultySlot)}`}>
+                {entry.chart.meter}
+              </span>
+              {entry.score != null ? <span>{entry.score.toFixed(2)}%</span> : null}
+              {entry.isTest ? <span className="softPill">Test</span> : null}
+              <span>{formatRelativeTime(new Date(entry.playedAt))}</span>
             </div>
-            <span className={`pill gradePill ${getGradeTone(entry.grade)}`}>
-              {entry.grade}
-            </span>
-          </article>
-        );
-      })}
+          </div>
+          <span className={`pill gradePill ${getGradeTone(entry.grade ?? "C")}`}>
+            {entry.grade ?? "-"}
+          </span>
+        </article>
+      ))}
     </div>
   );
 }

@@ -5,31 +5,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateMachineToken } from "@/lib/machineAuth";
+import {
+  getServerHighScore,
+  getUserHighScore,
+  resolveSongChartByPath,
+} from "@/lib/play-history";
 import { getCurrentQueueEntry } from "@/lib/queue-server";
 import { getSetting } from "@/lib/settings";
 import { SETTING_KEYS } from "@/lib/settingKeys";
-
-type HighScore = {
-  score: number;
-  grade: string;
-};
-
-type ServerHighScore = HighScore & {
-  held_by: string;
-};
-
-async function getUserHighScore(_songPath: string, _userId: number): Promise<HighScore | null> {
-  // TODO: Implement against play_history once that table exists.
-  void _songPath;
-  void _userId;
-  return null;
-}
-
-async function getServerHighScore(_songPath: string): Promise<ServerHighScore | null> {
-  // TODO: Implement against play_history once that table exists.
-  void _songPath;
-  return null;
-}
 
 export async function GET(request: Request) {
   const machineToken = await validateMachineToken(request);
@@ -93,9 +76,31 @@ export async function GET(request: Request) {
         }
       : null;
 
+  const resolvedSongChart =
+    currentQueueEntry
+      ? {
+          songId: currentQueueEntry.song.id,
+          chartId: currentQueueEntry.chart.id,
+        }
+      : await resolveSongChartByPath({
+          filePath: songPath,
+          difficultyName: difficulty,
+        });
+
   const [userHighScore, serverHighScore] = await Promise.all([
-    activePlayer ? getUserHighScore(songPath, activePlayer.id) : Promise.resolve(null),
-    getServerHighScore(songPath),
+    activePlayer && resolvedSongChart
+      ? getUserHighScore({
+          songId: resolvedSongChart.songId,
+          chartId: resolvedSongChart.chartId,
+          userId: activePlayer.id,
+        })
+      : Promise.resolve(null),
+    resolvedSongChart
+      ? getServerHighScore({
+          songId: resolvedSongChart.songId,
+          chartId: resolvedSongChart.chartId,
+        })
+      : Promise.resolve(null),
   ]);
 
   console.info("[machine] game.song.current.read", {
