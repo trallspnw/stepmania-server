@@ -179,7 +179,7 @@ export function AdminConsole({
   initialInvites,
   initialMachineTokens,
 }: AdminConsoleProps) {
-  const [activeTab, setActiveTab] = useState("users");
+  const [activeTab, setActiveTab] = useState("library");
   const [users, setUsers] = useState(initialUsers);
   const [invites, setInvites] = useState(initialInvites);
   const [machineTokens, setMachineTokens] = useState(initialMachineTokens);
