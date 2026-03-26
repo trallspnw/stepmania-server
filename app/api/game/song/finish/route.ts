@@ -13,12 +13,8 @@ import { validateMachineToken } from "@/lib/machineAuth";
 import {
   getServerHighScore,
   getUserHighScore,
-  recordPlayHistory,
-  resolveSongChartByPath,
 } from "@/lib/play-history";
 import { finishCurrentQueueEntry } from "@/lib/queue-server";
-import { getSetting, setSettings } from "@/lib/settings";
-import { SETTING_KEYS } from "@/lib/settingKeys";
 
 export async function POST(request: Request) {
   const machineToken = await validateMachineToken(request);
@@ -100,87 +96,14 @@ export async function POST(request: Request) {
     });
   }
 
-  const currentSongPath = (await getSetting(SETTING_KEYS.CURRENT_SONG_PATH))?.trim() ?? "";
-  const currentPlayerId = await getSetting(SETTING_KEYS.CURRENT_PLAYER_ID);
-  const currentDifficulty = await getSetting(SETTING_KEYS.CURRENT_SONG_DIFFICULTY);
-
-  if (!currentSongPath) {
-    console.info("[machine] game.song.finish", {
-      machineTokenId: machineToken.id,
-      machineTokenName: machineToken.name,
-      status: 400,
-      hasSong: false,
-      score,
-      grade,
-    });
-
-    return NextResponse.json({ error: "No current song set" }, { status: 400 });
-  }
-
-  const parsedPlayerId = currentPlayerId ? Number.parseInt(currentPlayerId, 10) : null;
-  const resolvedSongChart = await resolveSongChartByPath({
-    filePath: currentSongPath,
-    difficultyName: currentDifficulty,
-  });
-
-  if (!parsedPlayerId || !Number.isInteger(parsedPlayerId) || !resolvedSongChart) {
-    return NextResponse.json(
-      { error: "Current song context is missing player or chart data" },
-      { status: 400 },
-    );
-  }
-
-  await recordPlayHistory({
-    songId: resolvedSongChart.songId,
-    chartId: resolvedSongChart.chartId,
-    userId: parsedPlayerId,
-    score,
-    grade,
-    isTest,
-  });
-
-  const [userHighScore, serverHighScore] = await Promise.all([
-    getUserHighScore({
-      songId: resolvedSongChart.songId,
-      chartId: resolvedSongChart.chartId,
-      userId: parsedPlayerId,
-    }),
-    getServerHighScore({
-      songId: resolvedSongChart.songId,
-      chartId: resolvedSongChart.chartId,
-    }),
-  ]);
-
-  console.log("[finish] score received:", {
-    songPath: currentSongPath,
-    playerId: currentPlayerId,
-    score,
-    grade,
-    isTest,
-    playedAt: new Date().toISOString(),
-  });
-
-  await setSettings([
-    { key: SETTING_KEYS.CURRENT_SONG_PATH, value: "" },
-    { key: SETTING_KEYS.CURRENT_SONG_DIFFICULTY, value: "" },
-    { key: SETTING_KEYS.CURRENT_PLAYER_ID, value: "" },
-  ]);
-
   console.info("[machine] game.song.finish", {
     machineTokenId: machineToken.id,
     machineTokenName: machineToken.name,
-    status: 200,
-    hasSong: true,
-    finishedSongPath: currentSongPath,
-    playerId: currentPlayerId,
+    status: 400,
+    hasSong: false,
     score,
     grade,
-    isTest,
   });
 
-  return NextResponse.json({
-    recorded: true,
-    user_highscore: userHighScore,
-    server_highscore: serverHighScore,
-  });
+  return NextResponse.json({ error: "No current song set" }, { status: 400 });
 }

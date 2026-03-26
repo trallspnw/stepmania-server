@@ -2,7 +2,6 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { normalizeDifficultySlot } from "@/lib/library-browser";
 import type { QueueEntryRecord } from "@/lib/queue-types";
 import { prisma } from "@/lib/prisma";
-import { SETTING_KEYS } from "@/lib/settingKeys";
 
 type QueueDbClient = Prisma.TransactionClient | PrismaClient;
 type QueueStatus = "queued" | "playing";
@@ -52,18 +51,6 @@ function sortQueueEntries<T extends { status: string; playOrder: number; created
     }
 
     return left.id - right.id;
-  });
-}
-
-async function upsertSettingInTx(
-  tx: QueueDbClient,
-  key: string,
-  value: string | null,
-) {
-  await tx.setting.upsert({
-    where: { key },
-    update: { value },
-    create: { key, value },
   });
 }
 
@@ -129,28 +116,6 @@ async function getQueueEntriesWithRelations(tx: QueueDbClient): Promise<QueueEnt
 async function getCurrentQueueEntryInTx(tx: QueueDbClient): Promise<QueueEntryWithRelations | null> {
   const entries = await getQueueEntriesWithRelations(tx);
   return entries[0] ?? null;
-}
-
-async function syncCurrentSongSettingsToQueue(tx: QueueDbClient) {
-  const currentEntry = await getCurrentQueueEntryInTx(tx);
-
-  await upsertSettingInTx(
-    tx,
-    SETTING_KEYS.CURRENT_SONG_PATH,
-    currentEntry?.song.filePath ?? null,
-  );
-  await upsertSettingInTx(
-    tx,
-    SETTING_KEYS.CURRENT_SONG_DIFFICULTY,
-    currentEntry?.chart.difficultySlot ?? null,
-  );
-  await upsertSettingInTx(
-    tx,
-    SETTING_KEYS.CURRENT_PLAYER_ID,
-    currentEntry ? String(currentEntry.user.id) : null,
-  );
-
-  return currentEntry;
 }
 
 export async function recomputeQueuedPlayOrder(tx: QueueDbClient) {
@@ -258,7 +223,6 @@ export async function addQueueEntry(input: {
     });
 
     await recomputeQueuedPlayOrder(tx);
-    await syncCurrentSongSettingsToQueue(tx);
   });
 }
 
@@ -293,7 +257,6 @@ export async function removeQueueEntry(input: {
     });
 
     await recomputeQueuedPlayOrder(tx);
-    await syncCurrentSongSettingsToQueue(tx);
   });
 }
 
@@ -306,8 +269,6 @@ export async function clearQueueEntries() {
         },
       },
     });
-
-    await syncCurrentSongSettingsToQueue(tx);
   });
 }
 
@@ -319,8 +280,6 @@ export async function startCurrentQueueEntry() {
       return null;
     }
 
-    let nextCurrentEntry = currentEntry;
-
     if (currentEntry.status !== "playing") {
       await tx.queueEntry.update({
         where: {
@@ -331,21 +290,13 @@ export async function startCurrentQueueEntry() {
         },
       });
 
-      nextCurrentEntry = {
+      return {
         ...currentEntry,
         status: "playing",
       };
     }
 
-    await upsertSettingInTx(tx, SETTING_KEYS.CURRENT_SONG_PATH, nextCurrentEntry.song.filePath);
-    await upsertSettingInTx(
-      tx,
-      SETTING_KEYS.CURRENT_SONG_DIFFICULTY,
-      nextCurrentEntry.chart.difficultySlot,
-    );
-    await upsertSettingInTx(tx, SETTING_KEYS.CURRENT_PLAYER_ID, String(nextCurrentEntry.user.id));
-
-    return nextCurrentEntry;
+    return currentEntry;
   });
 }
 
@@ -364,7 +315,7 @@ export async function consumeCurrentQueueEntry() {
     });
 
     await recomputeQueuedPlayOrder(tx);
-    const nextEntry = await syncCurrentSongSettingsToQueue(tx);
+    const nextEntry = await getCurrentQueueEntryInTx(tx);
 
     return {
       removed: currentEntry,
@@ -403,7 +354,7 @@ export async function finishCurrentQueueEntry(input: {
     });
 
     await recomputeQueuedPlayOrder(tx);
-    const nextEntry = await syncCurrentSongSettingsToQueue(tx);
+    const nextEntry = await getCurrentQueueEntryInTx(tx);
 
     return {
       removed: currentEntry,

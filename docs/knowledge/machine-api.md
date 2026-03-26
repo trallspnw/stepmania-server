@@ -30,7 +30,6 @@ The machine API works against the current queue/current-song state.
 Current behavior:
 
 - if a queue entry exists, the queue head is treated as the current song
-- if no queue entry exists, the API falls back to the legacy current-song settings
 - `start` marks the current queue head as `playing`
 - `skip` removes the current queue head and advances
 - `finish` records play history, removes the current queue head, and advances
@@ -101,12 +100,9 @@ Marks the current queue song as started.
 
 This route is idempotent for the current queue head. If the current entry is already `playing`, it still returns success.
 
-#### Success: queue-backed current song
-
 ```json
 {
   "ok": true,
-  "queued": true,
   "song": {
     "file_path": "1Arc2008 - DDR X/Butterfly",
     "difficulty_name": "Hard"
@@ -115,15 +111,6 @@ This route is idempotent for the current queue head. If the current entry is alr
     "id": 12,
     "display_name": "Jordan"
   }
-}
-```
-
-#### Success: legacy settings-backed current song
-
-```json
-{
-  "ok": true,
-  "queued": false
 }
 ```
 
@@ -144,7 +131,6 @@ Skips the current song.
 Current behavior:
 
 - if a queue entry exists, it is removed and the queue advances
-- if no queue entry exists but a legacy current song is set, that current-song setting is cleared
 - no play history is recorded
 
 #### Success: queue-backed skip
@@ -164,14 +150,6 @@ Current behavior:
 ```
 
 `next_song` is `null` when the queue becomes empty.
-
-#### Success: legacy settings-backed skip
-
-```json
-{
-  "ok": true
-}
-```
 
 #### Error
 

@@ -3,16 +3,12 @@
 //   -H "Authorization: Bearer {your_token}"
 
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { validateMachineToken } from "@/lib/machineAuth";
 import {
   getServerHighScore,
   getUserHighScore,
-  resolveSongChartByPath,
 } from "@/lib/play-history";
 import { getCurrentQueueEntry } from "@/lib/queue-server";
-import { getSetting } from "@/lib/settings";
-import { SETTING_KEYS } from "@/lib/settingKeys";
 
 export async function GET(request: Request) {
   const machineToken = await validateMachineToken(request);
@@ -22,11 +18,8 @@ export async function GET(request: Request) {
   }
 
   const currentQueueEntry = await getCurrentQueueEntry();
-  const songPath =
-    currentQueueEntry?.song.filePath ??
-    ((await getSetting(SETTING_KEYS.CURRENT_SONG_PATH))?.trim() ?? "");
 
-  if (!songPath) {
+  if (!currentQueueEntry) {
     console.info("[machine] game.song.current.read", {
       machineTokenId: machineToken.id,
       machineTokenName: machineToken.name,
@@ -42,50 +35,16 @@ export async function GET(request: Request) {
     });
   }
 
-  const [fallbackDifficulty, fallbackPlayerId] = await Promise.all([
-    getSetting(SETTING_KEYS.CURRENT_SONG_DIFFICULTY),
-    getSetting(SETTING_KEYS.CURRENT_PLAYER_ID),
-  ]);
-
-  const difficulty = currentQueueEntry?.chart.difficultySlot ?? fallbackDifficulty;
-  const currentPlayerId = currentQueueEntry ? String(currentQueueEntry.user.id) : fallbackPlayerId;
-
-  const parsedPlayerId = currentPlayerId ? Number.parseInt(currentPlayerId, 10) : null;
-  const player =
-    parsedPlayerId && Number.isInteger(parsedPlayerId)
-      ? await prisma.user.findUnique({
-          where: { id: parsedPlayerId },
-          select: {
-            id: true,
-            displayName: true,
-            isActive: true,
-          },
-        })
-      : null;
-
-  const activePlayer =
-    currentQueueEntry
-      ? {
-          id: currentQueueEntry.user.id,
-          display_name: currentQueueEntry.user.displayName,
-        }
-      : player && player.isActive
-      ? {
-          id: player.id,
-          display_name: player.displayName,
-        }
-      : null;
-
-  const resolvedSongChart =
-    currentQueueEntry
-      ? {
-          songId: currentQueueEntry.song.id,
-          chartId: currentQueueEntry.chart.id,
-        }
-      : await resolveSongChartByPath({
-          filePath: songPath,
-          difficultyName: difficulty,
-        });
+  const songPath = currentQueueEntry.song.filePath;
+  const difficulty = currentQueueEntry.chart.difficultySlot;
+  const activePlayer = {
+    id: currentQueueEntry.user.id,
+    display_name: currentQueueEntry.user.displayName,
+  };
+  const resolvedSongChart = {
+    songId: currentQueueEntry.song.id,
+    chartId: currentQueueEntry.chart.id,
+  };
 
   const [userHighScore, serverHighScore] = await Promise.all([
     activePlayer && resolvedSongChart

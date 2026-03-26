@@ -7,8 +7,6 @@
 import { NextResponse } from "next/server";
 import { validateMachineToken } from "@/lib/machineAuth";
 import { consumeCurrentQueueEntry } from "@/lib/queue-server";
-import { getSetting, setSettings } from "@/lib/settings";
-import { SETTING_KEYS } from "@/lib/settingKeys";
 
 export async function POST(request: Request) {
   const machineToken = await validateMachineToken(request);
@@ -46,34 +44,12 @@ export async function POST(request: Request) {
     });
   }
 
-  const songPath = (await getSetting(SETTING_KEYS.CURRENT_SONG_PATH))?.trim() ?? "";
-  const currentPlayerId = await getSetting(SETTING_KEYS.CURRENT_PLAYER_ID);
-
-  if (!songPath) {
-    console.info("[machine] game.song.skip", {
-      machineTokenId: machineToken.id,
-      machineTokenName: machineToken.name,
-      status: 400,
-      hasSong: false,
-    });
-
-    return NextResponse.json({ error: "No current song set" }, { status: 400 });
-  }
-
-  await setSettings([
-    { key: SETTING_KEYS.CURRENT_SONG_PATH, value: "" },
-    { key: SETTING_KEYS.CURRENT_SONG_DIFFICULTY, value: "" },
-    { key: SETTING_KEYS.CURRENT_PLAYER_ID, value: "" },
-  ]);
-
   console.info("[machine] game.song.skip", {
     machineTokenId: machineToken.id,
     machineTokenName: machineToken.name,
-    status: 200,
-    hasSong: true,
-    skippedSongPath: songPath,
-    playerId: currentPlayerId,
+    status: 400,
+    hasSong: false,
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ error: "No current song set" }, { status: 400 });
 }

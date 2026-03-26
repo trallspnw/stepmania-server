@@ -786,7 +786,7 @@ export function AdminConsole({
       return;
     }
 
-    pushToast("Current song updated");
+    pushToast("Settings updated");
   }
 
   async function startIngestion() {
