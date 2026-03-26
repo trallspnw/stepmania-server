@@ -958,12 +958,12 @@ export function AdminConsole({
 
         <Tabs onValueChange={setActiveTab} value={activeTab}>
           <TabsList>
-            <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="library">Library</TabsTrigger>
             <TabsTrigger value="queue">Queue</TabsTrigger>
+            <TabsTrigger value="system">System</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
             <TabsTrigger value="test">Test</TabsTrigger>
-            <TabsTrigger value="system">System</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
