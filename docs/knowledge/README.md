@@ -13,6 +13,7 @@ Suggested contents:
 Current notes:
 
 - [`ingestion.md`](./ingestion.md): current database structures and ingestion methodology for packs, songs, and charts.
+- [`machine-api.md`](./machine-api.md): machine-facing authentication, song lifecycle routes, and current request/response contracts.
 - [`migration-workflow.md`](./migration-workflow.md): how Prisma migrations are created, committed, and applied locally and in deployment.
 - [`metadata.md`](./metadata.md): current `pack.ini` metadata schema, field meanings, and notes on future song metadata.
 - [`queue.md`](./queue.md): planned queue behavior, fairness model, and intended ordering approach.

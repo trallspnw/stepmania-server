@@ -18,6 +18,7 @@ Everything in `docs/` should either be linked here directly or be reachable from
 - Deployment docs: [`deployment/README.md`](./deployment/README.md)
 - General project knowledge: [`knowledge/README.md`](./knowledge/README.md)
 - Ingestion design: [`knowledge/ingestion.md`](./knowledge/ingestion.md)
+- Machine API reference: [`knowledge/machine-api.md`](./knowledge/machine-api.md)
 - Migration workflow: [`knowledge/migration-workflow.md`](./knowledge/migration-workflow.md)
 - Current app implementation: [`../app/`](../app/)
 - Metadata reference: [`knowledge/metadata.md`](./knowledge/metadata.md)
