@@ -87,6 +87,13 @@ type AdminHistoryResponse = {
   testCount: number;
 };
 
+type DeleteHistoryEntryResponse = {
+  deleted: boolean;
+  id: number;
+  wasTest: boolean;
+  testCount: number;
+};
+
 type IngestionStatus = {
   runId: number | null;
   status: "idle" | "running" | "completed" | "failed";
@@ -914,6 +921,27 @@ export function AdminConsole({
     pushToast("Queue cleared");
   }
 
+  async function deleteAdminHistoryEntry(entryId: number) {
+    setLoadingId(`delete-history-entry-${entryId}`);
+
+    const response = await fetch(`/api/admin/history/${entryId}`, {
+      method: "DELETE",
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      pushToast(data.error ?? "Failed to delete history entry", "destructive");
+      return;
+    }
+
+    const data = (await response.json()) as DeleteHistoryEntryResponse;
+    setAdminHistoryEntries((current) => current.filter((entry) => entry.id !== entryId));
+    setAdminTestHistoryCount(data.testCount);
+    pushToast("History entry deleted");
+  }
+
   async function clearAdminTestHistory() {
     setLoadingId("clear-test-history");
 
@@ -1675,18 +1703,19 @@ export function AdminConsole({
                           <TableHead>Score</TableHead>
                           <TableHead>Grade</TableHead>
                           <TableHead>Flags</TableHead>
+                          <TableHead className="min-w-[120px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {adminHistoryLoading && adminHistoryEntries.length === 0 ? (
                           <TableRow>
-                            <TableCell className="text-stone-600" colSpan={7}>
+                            <TableCell className="text-stone-600" colSpan={8}>
                               Loading play history...
                             </TableCell>
                           </TableRow>
                         ) : adminHistoryEntries.length === 0 ? (
                           <TableRow>
-                            <TableCell className="text-stone-600" colSpan={7}>
+                            <TableCell className="text-stone-600" colSpan={8}>
                               No play history yet.
                             </TableCell>
                           </TableRow>
@@ -1714,6 +1743,18 @@ export function AdminConsole({
                               </TableCell>
                               <TableCell>
                                 {entry.isTest ? <Badge variant="red">Test</Badge> : "-"}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  disabled={loadingId === `delete-history-entry-${entry.id}`}
+                                  onClick={() => void deleteAdminHistoryEntry(entry.id)}
+                                  size="sm"
+                                  type="button"
+                                  variant="outline"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </Button>
                               </TableCell>
                             </TableRow>
                           ))
