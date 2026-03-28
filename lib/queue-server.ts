@@ -289,6 +289,58 @@ export async function startCurrentQueueEntryWithExpectedId(expectedQueueEntryId:
       };
     }
 
+    return {
+      status: "started" as const,
+      entry: currentEntry,
+    };
+  });
+}
+
+export async function startCurrentQueueEntryWithExpectedIdAndDifficulty(input: {
+  expectedQueueEntryId: number;
+  difficultyName: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const currentEntry = await getCurrentQueueEntryInTx(tx);
+
+    if (!currentEntry) {
+      return {
+        status: "missing" as const,
+      };
+    }
+
+    if (currentEntry.id !== input.expectedQueueEntryId) {
+      return {
+        status: "mismatch" as const,
+        current: currentEntry,
+      };
+    }
+
+    const targetDifficulty = normalizeDifficultySlot(input.difficultyName);
+    const availableCharts = await tx.chart.findMany({
+      where: {
+        songId: currentEntry.song.id,
+      },
+      select: {
+        id: true,
+        difficultySlot: true,
+        meter: true,
+      },
+      orderBy: [{ meter: "desc" }],
+    });
+    const playedChart =
+      availableCharts.find(
+        (candidate) => normalizeDifficultySlot(candidate.difficultySlot) === targetDifficulty,
+      ) ?? null;
+
+    if (!playedChart) {
+      return {
+        status: "invalid_difficulty" as const,
+        current: currentEntry,
+        normalizedDifficultyName: targetDifficulty,
+      };
+    }
+
     if (currentEntry.status !== "playing") {
       await tx.queueEntry.update({
         where: {
@@ -305,12 +357,14 @@ export async function startCurrentQueueEntryWithExpectedId(expectedQueueEntryId:
           ...currentEntry,
           status: "playing",
         },
+        playedChart,
       };
     }
 
     return {
       status: "started" as const,
       entry: currentEntry,
+      playedChart,
     };
   });
 }
@@ -354,6 +408,7 @@ export async function finishCurrentQueueEntry(input: {
   grade: string;
   isTest?: boolean;
   expectedQueueEntryId: number;
+  difficultyName: string;
 }) {
   return prisma.$transaction(async (tx) => {
     const currentEntry = await getCurrentQueueEntryInTx(tx);
@@ -371,10 +426,35 @@ export async function finishCurrentQueueEntry(input: {
       };
     }
 
+    const targetDifficulty = normalizeDifficultySlot(input.difficultyName);
+    const availableCharts = await tx.chart.findMany({
+      where: {
+        songId: currentEntry.song.id,
+      },
+      select: {
+        id: true,
+        difficultySlot: true,
+        meter: true,
+      },
+      orderBy: [{ meter: "desc" }],
+    });
+    const playedChart =
+      availableCharts.find(
+        (candidate) => normalizeDifficultySlot(candidate.difficultySlot) === targetDifficulty,
+      ) ?? null;
+
+    if (!playedChart) {
+      return {
+        status: "invalid_difficulty" as const,
+        current: currentEntry,
+        normalizedDifficultyName: targetDifficulty,
+      };
+    }
+
     await tx.playHistory.create({
       data: {
         songId: currentEntry.song.id,
-        chartId: currentEntry.chart.id,
+        chartId: playedChart.id,
         userId: currentEntry.user.id,
         score: input.score,
         grade: input.grade,
@@ -394,6 +474,7 @@ export async function finishCurrentQueueEntry(input: {
     return {
       status: "finished" as const,
       removed: currentEntry,
+      playedChart,
       next: nextEntry,
     };
   });

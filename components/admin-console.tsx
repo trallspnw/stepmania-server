@@ -237,6 +237,7 @@ export function AdminConsole({
   });
   const [machineTestToken, setMachineTestToken] = useState("");
   const [machineQueueItemId, setMachineQueueItemId] = useState("");
+  const [machinePlayedDifficulty, setMachinePlayedDifficulty] = useState("Hard");
   const [machineFinishScore, setMachineFinishScore] = useState("100.00");
   const [machineFinishGrade, setMachineFinishGrade] = useState("A");
   const [machineTestResponse, setMachineTestResponse] = useState<MachineTestResponse | null>(null);
@@ -1829,6 +1830,7 @@ export function AdminConsole({
                           method: "POST",
                           body: {
                             queue_item_id: Number(machineQueueItemId),
+                            difficulty_name: machinePlayedDifficulty,
                           },
                           loadingKey: "machine-start",
                         })
@@ -1878,6 +1880,20 @@ export function AdminConsole({
                     </p>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="machine-played-difficulty">Played Difficulty For Start/Finish</Label>
+                    <Input
+                      id="machine-played-difficulty"
+                      onChange={(event) => setMachinePlayedDifficulty(event.target.value)}
+                      placeholder="Hard"
+                      value={machinePlayedDifficulty}
+                    />
+                    <p className="text-xs text-stone-500">
+                      Required for `POST /start` and `POST /finish`. The server normalizes aliases like
+                      `Challenge` to `Expert`.
+                    </p>
+                  </div>
+
                   <div className="space-y-4 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
                     <div>
                       <h3 className="text-sm font-semibold text-stone-950">Finish Payload</h3>
@@ -1885,7 +1901,7 @@ export function AdminConsole({
                         Submit a machine-style finish event with decimal score and grade.
                       </p>
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-3">
                       <div className="space-y-2">
                         <Label htmlFor="machine-finish-score">Score</Label>
                         <Input
@@ -1925,6 +1941,7 @@ export function AdminConsole({
                             method: "POST",
                             body: {
                               queue_item_id: Number(machineQueueItemId),
+                              difficulty_name: machinePlayedDifficulty,
                               score: Number(machineFinishScore),
                               grade: machineFinishGrade,
                               test: true,

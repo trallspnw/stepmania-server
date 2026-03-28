@@ -30,6 +30,10 @@ export async function POST(request: Request) {
     typeof body?.grade === "string"
       ? body.grade.trim()
       : "";
+  const playedDifficulty =
+    typeof body?.difficulty_name === "string"
+      ? body.difficulty_name.trim()
+      : "";
   const queueItemId = Number(body?.queue_item_id);
 
   if (!Number.isFinite(score) || score < 0) {
@@ -46,6 +50,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!playedDifficulty) {
+    return NextResponse.json(
+      { error: "difficulty_name must be a non-empty string" },
+      { status: 400 },
+    );
+  }
+
   if (!Number.isInteger(queueItemId) || queueItemId <= 0) {
     console.info("[machine] game.song.finish", {
       machineTokenId: machineToken.id,
@@ -55,6 +66,7 @@ export async function POST(request: Request) {
       expectedQueueItemId: body?.queue_item_id ?? null,
       score,
       grade,
+      difficultyName: playedDifficulty || null,
     });
 
     return NextResponse.json(
@@ -68,18 +80,19 @@ export async function POST(request: Request) {
     grade,
     isTest,
     expectedQueueEntryId: queueItemId,
+    difficultyName: playedDifficulty,
   });
 
   if (consumed.status === "finished") {
     const [userHighScore, serverHighScore] = await Promise.all([
       getUserHighScore({
         songId: consumed.removed.song.id,
-        chartId: consumed.removed.chart.id,
+        chartId: consumed.playedChart.id,
         userId: consumed.removed.user.id,
       }),
       getServerHighScore({
         songId: consumed.removed.song.id,
-        chartId: consumed.removed.chart.id,
+        chartId: consumed.playedChart.id,
       }),
     ]);
 
@@ -88,6 +101,7 @@ export async function POST(request: Request) {
       playerId: consumed.removed.user.id,
       score,
       grade,
+      difficultyName: consumed.playedChart.difficultySlot,
       isTest,
       playedAt: new Date().toISOString(),
     });
@@ -100,6 +114,8 @@ export async function POST(request: Request) {
       finishedSongPath: consumed.removed.song.filePath,
       playerId: consumed.removed.user.id,
       queueEntryId: consumed.removed.id,
+      queuedDifficultyName: consumed.removed.chart.difficultySlot,
+      playedDifficultyName: consumed.playedChart.difficultySlot,
       nextSongPath: consumed.next?.song.filePath ?? null,
       score,
       grade,
@@ -119,6 +135,28 @@ export async function POST(request: Request) {
           }
         : null,
     });
+  }
+
+  if (consumed.status === "invalid_difficulty") {
+    console.info("[machine] game.song.finish", {
+      machineTokenId: machineToken.id,
+      machineTokenName: machineToken.name,
+      status: 400,
+      hasSong: true,
+      expectedQueueItemId: queueItemId,
+      actualQueueItemId: consumed.current.id,
+      actualSongPath: consumed.current.song.filePath,
+      queuedDifficultyName: consumed.current.chart.difficultySlot,
+      difficultyName: playedDifficulty,
+      normalizedDifficultyName: consumed.normalizedDifficultyName,
+      score,
+      grade,
+    });
+
+    return NextResponse.json(
+      { error: "difficulty_name does not match an available chart for the queued song" },
+      { status: 400 },
+    );
   }
 
   if (consumed.status === "mismatch") {

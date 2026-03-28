@@ -107,7 +107,8 @@ This route is idempotent for the current queue head. If the current entry is alr
 
 ```json
 {
-  "queue_item_id": 42
+  "queue_item_id": 42,
+  "difficulty_name": "Hard"
 }
 ```
 
@@ -115,6 +116,10 @@ This route is idempotent for the current queue head. If the current entry is alr
 
 - `queue_item_id`
   Required positive integer. It must match the current queue head or the request fails with `400` and no state change occurs.
+- `difficulty_name`
+  Required non-empty string. This is the difficulty the client intends to play. The server normalizes common aliases like `Challenge` to `Expert` and resolves the chart against the queued song.
+
+#### Success
 
 ```json
 {
@@ -127,6 +132,15 @@ This route is idempotent for the current queue head. If the current entry is alr
   "player": {
     "id": 12,
     "display_name": "Jordan"
+  },
+  "user_highscore": {
+    "score": 97.43,
+    "grade": "AA"
+  },
+  "server_highscore": {
+    "score": 99.12,
+    "grade": "AAA",
+    "held_by": "Alex"
   }
 }
 ```
@@ -143,6 +157,18 @@ or:
 
 ```json
 { "error": "queue_item_id does not match the current queue item" }
+```
+
+or:
+
+```json
+{ "error": "difficulty_name must be a non-empty string" }
+```
+
+or:
+
+```json
+{ "error": "difficulty_name does not match an available chart for the queued song" }
 ```
 
 Status: `400`
@@ -230,6 +256,7 @@ Records a completed play and advances the queue/current-song state.
 {
   "score": 100.00,
   "grade": "AAA",
+  "difficulty_name": "Hard",
   "queue_item_id": 42
 }
 ```
@@ -239,6 +266,7 @@ Optional test payload:
 ```json
 {
   "queue_item_id": 42,
+  "difficulty_name": "Easy",
   "score": 75.23,
   "grade": "B",
   "test": true
@@ -251,6 +279,8 @@ Optional test payload:
   Required non-negative decimal value
 - `grade`
   Required non-empty string
+- `difficulty_name`
+  Required non-empty string. This is the difficulty actually played by the client. The server normalizes common aliases like `Challenge` to `Expert` and resolves the chart against the queued song.
 - `test`
   Optional boolean. When `true`, the resulting `PlayHistory` row is marked as test data
 - `queue_item_id`
@@ -284,6 +314,16 @@ If `queue_item_id` does not match the active queue head:
 ```json
 {
   "error": "queue_item_id does not match the current queue item"
+}
+```
+
+Status: `400`
+
+If `difficulty_name` does not match an available chart for the queued song:
+
+```json
+{
+  "error": "difficulty_name does not match an available chart for the queued song"
 }
 ```
 
@@ -340,6 +380,7 @@ Current behavior:
 
 - token may be omitted intentionally to test unauthorized responses
 - admin-triggered `POST /start`, `POST /skip`, and `POST /finish` requests must include `queue_item_id`
+- admin-triggered `POST /start` and `POST /finish` requests must also include the played `difficulty_name`
 - admin-triggered finish requests are forced to `test: true`
 - admin `History` tab can clear test-only history rows
 

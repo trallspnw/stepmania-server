@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateMachineToken } from "@/lib/machineAuth";
-import { startCurrentQueueEntryWithExpectedId } from "@/lib/queue-server";
+import { getServerHighScore, getUserHighScore } from "@/lib/play-history";
+import { startCurrentQueueEntryWithExpectedIdAndDifficulty } from "@/lib/queue-server";
 
 export async function POST(request: Request) {
   const machineToken = await validateMachineToken(request);
@@ -11,6 +12,10 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const queueItemId = Number(body?.queue_item_id);
+  const playedDifficulty =
+    typeof body?.difficulty_name === "string"
+      ? body.difficulty_name.trim()
+      : "";
 
   if (!Number.isInteger(queueItemId) || queueItemId <= 0) {
     console.info("[machine] game.song.start", {
@@ -27,7 +32,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const startedEntry = await startCurrentQueueEntryWithExpectedId(queueItemId);
+  if (!playedDifficulty) {
+    return NextResponse.json(
+      { error: "difficulty_name must be a non-empty string" },
+      { status: 400 },
+    );
+  }
+
+  const startedEntry = await startCurrentQueueEntryWithExpectedIdAndDifficulty({
+    expectedQueueEntryId: queueItemId,
+    difficultyName: playedDifficulty,
+  });
 
   if (startedEntry.status === "missing") {
     console.info("[machine] game.song.start", {
@@ -57,6 +72,38 @@ export async function POST(request: Request) {
     );
   }
 
+  if (startedEntry.status === "invalid_difficulty") {
+    console.info("[machine] game.song.start", {
+      machineTokenId: machineToken.id,
+      machineTokenName: machineToken.name,
+      status: 400,
+      hasSong: true,
+      expectedQueueItemId: queueItemId,
+      actualQueueItemId: startedEntry.current.id,
+      actualSongPath: startedEntry.current.song.filePath,
+      queuedDifficultyName: startedEntry.current.chart.difficultySlot,
+      difficultyName: playedDifficulty,
+      normalizedDifficultyName: startedEntry.normalizedDifficultyName,
+    });
+
+    return NextResponse.json(
+      { error: "difficulty_name does not match an available chart for the queued song" },
+      { status: 400 },
+    );
+  }
+
+  const [userHighScore, serverHighScore] = await Promise.all([
+    getUserHighScore({
+      songId: startedEntry.entry.song.id,
+      chartId: startedEntry.playedChart.id,
+      userId: startedEntry.entry.user.id,
+    }),
+    getServerHighScore({
+      songId: startedEntry.entry.song.id,
+      chartId: startedEntry.playedChart.id,
+    }),
+  ]);
+
   console.info("[machine] game.song.start", {
     machineTokenId: machineToken.id,
     machineTokenName: machineToken.name,
@@ -65,6 +112,8 @@ export async function POST(request: Request) {
     songPath: startedEntry.entry.song.filePath,
     playerId: startedEntry.entry.user.id,
     queueEntryId: startedEntry.entry.id,
+    queuedDifficultyName: startedEntry.entry.chart.difficultySlot,
+    playedDifficultyName: startedEntry.playedChart.difficultySlot,
   });
 
   return NextResponse.json({
@@ -72,11 +121,13 @@ export async function POST(request: Request) {
     queue_item_id: startedEntry.entry.id,
     song: {
       file_path: startedEntry.entry.song.filePath,
-      difficulty_name: startedEntry.entry.chart.difficultySlot,
+      difficulty_name: startedEntry.playedChart.difficultySlot,
     },
     player: {
       id: startedEntry.entry.user.id,
       display_name: startedEntry.entry.user.displayName,
     },
+    user_highscore: userHighScore,
+    server_highscore: serverHighScore,
   });
 }
