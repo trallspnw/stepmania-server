@@ -26,10 +26,15 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const score = Number(body?.score);
   const isTest = body?.test === true;
+  const rawQueueItemId = body?.queue_item_id;
   const grade =
     typeof body?.grade === "string"
       ? body.grade.trim()
       : "";
+  const queueItemId =
+    rawQueueItemId == null || rawQueueItemId === ""
+      ? null
+      : Number(rawQueueItemId);
 
   if (!Number.isFinite(score) || score < 0) {
     return NextResponse.json(
@@ -45,9 +50,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const consumed = await finishCurrentQueueEntry({ score, grade, isTest });
+  if (queueItemId != null && (!Number.isInteger(queueItemId) || queueItemId <= 0)) {
+    return NextResponse.json(
+      { error: "queue_item_id must be a positive integer when provided" },
+      { status: 400 },
+    );
+  }
 
-  if (consumed) {
+  const consumed = await finishCurrentQueueEntry({
+    score,
+    grade,
+    isTest,
+    expectedQueueEntryId: queueItemId,
+  });
+
+  if (consumed.status === "finished") {
     const [userHighScore, serverHighScore] = await Promise.all([
       getUserHighScore({
         songId: consumed.removed.song.id,
@@ -85,15 +102,39 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       recorded: true,
+      queue_item_id: consumed.removed.id,
       user_highscore: userHighScore,
       server_highscore: serverHighScore,
       next_song: consumed.next
         ? {
+            queue_item_id: consumed.next.id,
             file_path: consumed.next.song.filePath,
             difficulty_name: consumed.next.chart.difficultySlot,
           }
         : null,
     });
+  }
+
+  if (consumed.status === "mismatch") {
+    console.info("[machine] game.song.finish", {
+      machineTokenId: machineToken.id,
+      machineTokenName: machineToken.name,
+      status: 409,
+      hasSong: true,
+      expectedQueueItemId: queueItemId,
+      actualQueueItemId: consumed.current.id,
+      actualSongPath: consumed.current.song.filePath,
+      score,
+      grade,
+    });
+
+    return NextResponse.json(
+      {
+        error: "queue_item_id does not match the current queue item",
+        current_queue_item_id: consumed.current.id,
+      },
+      { status: 409 },
+    );
   }
 
   console.info("[machine] game.song.finish", {

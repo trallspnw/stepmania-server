@@ -55,6 +55,7 @@ Returns the current song context for the machine.
 
 ```json
 {
+  "queue_item_id": 42,
   "song": {
     "file_path": "1Arc2008 - DDR X/Butterfly",
     "difficulty_name": "Hard"
@@ -77,6 +78,8 @@ Returns the current song context for the machine.
 
 #### Response fields
 
+- `queue_item_id`
+  The current queue entry id. Pass this back to `POST /api/game/song/finish` to validate the machine is finishing the expected song.
 - `song.file_path`
   Relative song path used by the server, matching ingested `Song.filePath`
 - `song.difficulty_name`
@@ -103,6 +106,7 @@ This route is idempotent for the current queue head. If the current entry is alr
 ```json
 {
   "ok": true,
+  "queue_item_id": 42,
   "song": {
     "file_path": "1Arc2008 - DDR X/Butterfly",
     "difficulty_name": "Hard"
@@ -170,7 +174,8 @@ Records a completed play and advances the queue/current-song state.
 ```json
 {
   "score": 100.00,
-  "grade": "AAA"
+  "grade": "AAA",
+  "queue_item_id": 42
 }
 ```
 
@@ -192,12 +197,15 @@ Optional test payload:
   Required non-empty string
 - `test`
   Optional boolean. When `true`, the resulting `PlayHistory` row is marked as test data
+- `queue_item_id`
+  Optional positive integer. When provided, it must match the current queue head or the request fails with `409`
 
 #### Success
 
 ```json
 {
   "recorded": true,
+  "queue_item_id": 42,
   "user_highscore": {
     "score": 97.43,
     "grade": "AA"
@@ -208,11 +216,23 @@ Optional test payload:
     "held_by": "Alex"
   },
   "next_song": {
+    "queue_item_id": 43,
     "file_path": "1Arc2008 - DDR X/Paranoia",
     "difficulty_name": "Challenge"
   }
 }
 ```
+
+If `queue_item_id` does not match the active queue head:
+
+```json
+{
+  "error": "queue_item_id does not match the current queue item",
+  "current_queue_item_id": 43
+}
+```
+
+Status: `409`
 
 `next_song` is omitted when the route is operating on legacy current-song settings instead of a queue entry.
 

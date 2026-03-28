@@ -73,6 +73,7 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json({
+    queue_item_id: currentQueueEntry.id,
     song: {
       file_path: songPath,
       difficulty_name: difficulty,

@@ -34,6 +34,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
+    queue_item_id: startedEntry.id,
     song: {
       file_path: startedEntry.song.filePath,
       difficulty_name: startedEntry.chart.difficultySlot,

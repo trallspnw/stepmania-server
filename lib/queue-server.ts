@@ -328,12 +328,25 @@ export async function finishCurrentQueueEntry(input: {
   score: number;
   grade: string;
   isTest?: boolean;
+  expectedQueueEntryId?: number | null;
 }) {
   return prisma.$transaction(async (tx) => {
     const currentEntry = await getCurrentQueueEntryInTx(tx);
 
     if (!currentEntry) {
-      return null;
+      return {
+        status: "missing" as const,
+      };
+    }
+
+    if (
+      input.expectedQueueEntryId != null &&
+      currentEntry.id !== input.expectedQueueEntryId
+    ) {
+      return {
+        status: "mismatch" as const,
+        current: currentEntry,
+      };
     }
 
     await tx.playHistory.create({
@@ -357,6 +370,7 @@ export async function finishCurrentQueueEntry(input: {
     const nextEntry = await getCurrentQueueEntryInTx(tx);
 
     return {
+      status: "finished" as const,
       removed: currentEntry,
       next: nextEntry,
     };
