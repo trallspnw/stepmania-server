@@ -6,7 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { validateMachineToken } from "@/lib/machineAuth";
-import { consumeCurrentQueueEntry } from "@/lib/queue-server";
+import { consumeCurrentQueueEntryWithExpectedId } from "@/lib/queue-server";
 
 export async function POST(request: Request) {
   const machineToken = await validateMachineToken(request);
@@ -15,9 +15,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const consumed = await consumeCurrentQueueEntry();
+  const body = await request.json().catch(() => ({}));
+  const queueItemId = Number(body?.queue_item_id);
 
-  if (consumed) {
+  if (!Number.isInteger(queueItemId) || queueItemId <= 0) {
+    console.info("[machine] game.song.skip", {
+      machineTokenId: machineToken.id,
+      machineTokenName: machineToken.name,
+      status: 400,
+      hasSong: true,
+      expectedQueueItemId: body?.queue_item_id ?? null,
+    });
+
+    return NextResponse.json(
+      { error: "queue_item_id must be a positive integer" },
+      { status: 400 },
+    );
+  }
+
+  const consumed = await consumeCurrentQueueEntryWithExpectedId(queueItemId);
+
+  if (consumed.status === "consumed") {
     console.info("[machine] game.song.skip", {
       machineTokenId: machineToken.id,
       machineTokenName: machineToken.name,
@@ -37,11 +55,29 @@ export async function POST(request: Request) {
       },
       next_song: consumed.next
         ? {
+            queue_item_id: consumed.next.id,
             file_path: consumed.next.song.filePath,
             difficulty_name: consumed.next.chart.difficultySlot,
           }
         : null,
     });
+  }
+
+  if (consumed.status === "mismatch") {
+    console.warn("[machine] game.song.skip", {
+      machineTokenId: machineToken.id,
+      machineTokenName: machineToken.name,
+      status: 400,
+      hasSong: true,
+      expectedQueueItemId: queueItemId,
+      actualQueueItemId: consumed.current.id,
+      actualSongPath: consumed.current.song.filePath,
+    });
+
+    return NextResponse.json(
+      { error: "queue_item_id does not match the current queue item" },
+      { status: 400 },
+    );
   }
 
   console.info("[machine] game.song.skip", {

@@ -79,7 +79,7 @@ Returns the current song context for the machine.
 #### Response fields
 
 - `queue_item_id`
-  The current queue entry id. Pass this back to `POST /api/game/song/finish` to validate the machine is finishing the expected song.
+  The current queue entry id. Pass this back to `POST /api/game/song/start`, `POST /api/game/song/skip`, and `POST /api/game/song/finish`.
 - `song.file_path`
   Relative song path used by the server, matching ingested `Song.filePath`
 - `song.difficulty_name`
@@ -103,6 +103,19 @@ Marks the current queue song as started.
 
 This route is idempotent for the current queue head. If the current entry is already `playing`, it still returns success.
 
+#### Request body
+
+```json
+{
+  "queue_item_id": 42
+}
+```
+
+#### Request field rules
+
+- `queue_item_id`
+  Required positive integer. It must match the current queue head or the request fails with `400` and no state change occurs.
+
 ```json
 {
   "ok": true,
@@ -119,6 +132,20 @@ This route is idempotent for the current queue head. If the current entry is alr
 ```
 
 #### Error
+
+Invalid or mismatched `queue_item_id`:
+
+```json
+{ "error": "queue_item_id must be a positive integer" }
+```
+
+or:
+
+```json
+{ "error": "queue_item_id does not match the current queue item" }
+```
+
+Status: `400`
 
 If no current song exists:
 
@@ -137,6 +164,19 @@ Current behavior:
 - if a queue entry exists, it is removed and the queue advances
 - no play history is recorded
 
+#### Request body
+
+```json
+{
+  "queue_item_id": 42
+}
+```
+
+#### Request field rules
+
+- `queue_item_id`
+  Required positive integer. It must match the current queue head or the request fails with `400` and no state change occurs.
+
 #### Success: queue-backed skip
 
 ```json
@@ -147,6 +187,7 @@ Current behavior:
     "difficulty_name": "Hard"
   },
   "next_song": {
+    "queue_item_id": 43,
     "file_path": "1Arc2008 - DDR X/Paranoia",
     "difficulty_name": "Challenge"
   }
@@ -156,6 +197,20 @@ Current behavior:
 `next_song` is `null` when the queue becomes empty.
 
 #### Error
+
+Invalid or mismatched `queue_item_id`:
+
+```json
+{ "error": "queue_item_id must be a positive integer" }
+```
+
+or:
+
+```json
+{ "error": "queue_item_id does not match the current queue item" }
+```
+
+Status: `400`
 
 If no current song exists:
 
@@ -183,6 +238,7 @@ Optional test payload:
 
 ```json
 {
+  "queue_item_id": 42,
   "score": 75.23,
   "grade": "B",
   "test": true
@@ -198,7 +254,7 @@ Optional test payload:
 - `test`
   Optional boolean. When `true`, the resulting `PlayHistory` row is marked as test data
 - `queue_item_id`
-  Optional positive integer. When provided, it must match the current queue head or the request fails with `409`
+  Required positive integer. It must match the current queue head or the request fails with `400` and no state change occurs.
 
 #### Success
 
@@ -227,14 +283,11 @@ If `queue_item_id` does not match the active queue head:
 
 ```json
 {
-  "error": "queue_item_id does not match the current queue item",
-  "current_queue_item_id": 43
+  "error": "queue_item_id does not match the current queue item"
 }
 ```
 
-Status: `409`
-
-`next_song` is omitted when the route is operating on legacy current-song settings instead of a queue entry.
+Status: `400`
 
 #### Validation errors
 
@@ -256,14 +309,6 @@ Missing current song:
 
 ```json
 { "error": "No current song set" }
-```
-
-Status: `400`
-
-Incomplete legacy current-song context:
-
-```json
-{ "error": "Current song context is missing player or chart data" }
 ```
 
 Status: `400`
@@ -294,6 +339,7 @@ The admin `Test` tab can call these machine routes directly.
 Current behavior:
 
 - token may be omitted intentionally to test unauthorized responses
+- admin-triggered `POST /start`, `POST /skip`, and `POST /finish` requests must include `queue_item_id`
 - admin-triggered finish requests are forced to `test: true`
 - admin `History` tab can clear test-only history rows
 
@@ -302,6 +348,5 @@ Current behavior:
 Known limitations at the time of writing:
 
 - `grade` accepts any non-empty string; there is no canonical grade validation yet
-- `GET /api/game/song/current` still supports a legacy settings fallback for non-queue flows
 - `skip` does not write any history
 - there is no separate machine heartbeat route; token `lastSeen` is updated opportunistically on authenticated machine requests

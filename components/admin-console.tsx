@@ -229,6 +229,7 @@ export function AdminConsole({
     libraryGameMode: "dance-single",
   });
   const [machineTestToken, setMachineTestToken] = useState("");
+  const [machineQueueItemId, setMachineQueueItemId] = useState("");
   const [machineFinishScore, setMachineFinishScore] = useState("100.00");
   const [machineFinishGrade, setMachineFinishGrade] = useState("A");
   const [machineTestResponse, setMachineTestResponse] = useState<MachineTestResponse | null>(null);
@@ -1785,6 +1786,9 @@ export function AdminConsole({
                         void callMachineApi({
                           endpoint: "/api/game/song/start",
                           method: "POST",
+                          body: {
+                            queue_item_id: Number(machineQueueItemId),
+                          },
                           loadingKey: "machine-start",
                         })
                       }
@@ -1802,6 +1806,9 @@ export function AdminConsole({
                         void callMachineApi({
                           endpoint: "/api/game/song/skip",
                           method: "POST",
+                          body: {
+                            queue_item_id: Number(machineQueueItemId),
+                          },
                           loadingKey: "machine-skip",
                         })
                       }
@@ -1813,6 +1820,21 @@ export function AdminConsole({
                       ) : null}
                       POST Skip
                     </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="machine-queue-item-id">Queue Item ID For POST Requests</Label>
+                    <Input
+                      id="machine-queue-item-id"
+                      inputMode="numeric"
+                      onChange={(event) => setMachineQueueItemId(event.target.value)}
+                      placeholder="42"
+                      value={machineQueueItemId}
+                    />
+                    <p className="text-xs text-stone-500">
+                      Required for `POST /start`, `POST /skip`, and `POST /finish`. Use the
+                      `queue_item_id` returned by `GET /current`.
+                    </p>
                   </div>
 
                   <div className="space-y-4 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
@@ -1861,6 +1883,7 @@ export function AdminConsole({
                             endpoint: "/api/game/song/finish",
                             method: "POST",
                             body: {
+                              queue_item_id: Number(machineQueueItemId),
                               score: Number(machineFinishScore),
                               grade: machineFinishGrade,
                               test: true,
