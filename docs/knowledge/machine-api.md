@@ -72,7 +72,34 @@ Returns the current song context for the machine.
     "score": 99.12,
     "grade": "AAA",
     "held_by": "Alex"
-  }
+  },
+  "chart_highscores": [
+    {
+      "chart_id": 1001,
+      "difficulty_name": "Easy",
+      "meter": 4,
+      "user_highscore": null,
+      "server_highscore": {
+        "score": 95.12,
+        "grade": "A",
+        "held_by": "Alex"
+      }
+    },
+    {
+      "chart_id": 1002,
+      "difficulty_name": "Hard",
+      "meter": 8,
+      "user_highscore": {
+        "score": 97.43,
+        "grade": "AA"
+      },
+      "server_highscore": {
+        "score": 99.12,
+        "grade": "AAA",
+        "held_by": "Alex"
+      }
+    }
+  ]
 }
 ```
 
@@ -90,6 +117,18 @@ Returns the current song context for the machine.
   Best recorded score for the current player on the current chart
 - `server_highscore`
   Best recorded score for any player on the current chart, including `held_by`
+- `chart_highscores`
+  Per-chart highscores for every available chart on the queued song. This allows the client to update ready-screen high score display immediately when difficulty changes.
+- `chart_highscores[].chart_id`
+  The server chart id for that chart
+- `chart_highscores[].difficulty_name`
+  Normalized difficulty name for that chart
+- `chart_highscores[].meter`
+  Meter for that chart
+- `chart_highscores[].user_highscore`
+  Best recorded score for the current player on that chart
+- `chart_highscores[].server_highscore`
+  Best recorded score for any player on that chart, including `held_by`
 
 #### Notes
 

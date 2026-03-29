@@ -85,6 +85,51 @@ export async function getServerHighScore(input: {
   };
 }
 
+export async function getChartHighScoresForSong(input: {
+  songId: number;
+  userId: number | null;
+}) {
+  const charts = await prisma.chart.findMany({
+    where: {
+      songId: input.songId,
+    },
+    select: {
+      id: true,
+      difficultySlot: true,
+      meter: true,
+    },
+    orderBy: [{ meter: "asc" }, { id: "asc" }],
+  });
+
+  const chartHighScores = await Promise.all(
+    charts.map(async (chart) => {
+      const [userHighScore, serverHighScore] = await Promise.all([
+        input.userId != null
+          ? getUserHighScore({
+              songId: input.songId,
+              chartId: chart.id,
+              userId: input.userId,
+            })
+          : Promise.resolve(null),
+        getServerHighScore({
+          songId: input.songId,
+          chartId: chart.id,
+        }),
+      ]);
+
+      return {
+        chart_id: chart.id,
+        difficulty_name: normalizeDifficultySlot(chart.difficultySlot),
+        meter: chart.meter,
+        user_highscore: userHighScore,
+        server_highscore: serverHighScore,
+      };
+    }),
+  );
+
+  return chartHighScores;
+}
+
 export async function resolveSongChartByPath(input: {
   filePath: string;
   difficultyName: string | null | undefined;

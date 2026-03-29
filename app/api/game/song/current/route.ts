@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { validateMachineToken } from "@/lib/machineAuth";
 import {
+  getChartHighScoresForSong,
   getServerHighScore,
   getUserHighScore,
 } from "@/lib/play-history";
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
     chartId: currentQueueEntry.chart.id,
   };
 
-  const [userHighScore, serverHighScore] = await Promise.all([
+  const [userHighScore, serverHighScore, chartHighScores] = await Promise.all([
     activePlayer && resolvedSongChart
       ? getUserHighScore({
           songId: resolvedSongChart.songId,
@@ -60,6 +61,10 @@ export async function GET(request: Request) {
           chartId: resolvedSongChart.chartId,
         })
       : Promise.resolve(null),
+    getChartHighScoresForSong({
+      songId: currentQueueEntry.song.id,
+      userId: activePlayer.id,
+    }),
   ]);
 
   console.info("[machine] game.song.current.read", {
@@ -81,5 +86,6 @@ export async function GET(request: Request) {
     player: activePlayer,
     user_highscore: userHighScore,
     server_highscore: serverHighScore,
+    chart_highscores: chartHighScores,
   });
 }
