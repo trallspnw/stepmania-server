@@ -817,7 +817,45 @@
 }
 
 .root :global(.sheetHeader) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.root :global(.sheetHeaderCopy) {
+  min-width: 0;
+}
+
+.root :global(.sheetPreviewButton) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 3.15rem;
+  height: 3.15rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--difficulty-easy) 35%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--difficulty-easy) 14%, white);
+  color: color-mix(in srgb, var(--difficulty-easy) 72%, #15311f);
+}
+
+.root :global(.sheetPreviewIcon) {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.root :global(.appCanvas button.sheetPreviewButton:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(36, 123, 73, 0.18);
+}
+
+.root :global(.sheetPreviewButton.isPlaying) {
+  border-color: color-mix(in srgb, #c93f3f 38%, var(--line));
+  background: color-mix(in srgb, #c93f3f 15%, white);
+  color: color-mix(in srgb, #c93f3f 78%, #4b1111);
 }
 
 .root :global(.sheetMetaGrid) {

@@ -21,6 +21,8 @@ export interface BrowseSongRecord {
   bpmLabel: string;
   bpmFilterMin: number | null;
   bpmFilterMax: number | null;
+  sampleStart: number | null;
+  sampleLength: number | null;
   difficulties: BrowseDifficulty[];
 }
 

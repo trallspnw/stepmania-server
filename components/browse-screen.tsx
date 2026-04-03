@@ -16,7 +16,9 @@ import {
   FilterIcon,
   FolderIcon,
   PlusIcon,
+  PlayIcon,
   SearchIcon,
+  StopIcon,
   UserIcon,
 } from "@/components/icons";
 import { useApp } from "@/lib/app-context";
@@ -149,6 +151,9 @@ export function BrowseScreen() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<BrowseDifficulty | null>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [selectedSongBannerSrc, setSelectedSongBannerSrc] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [browseMode, setBrowseMode] = useState<BrowseMode>("search");
   const [folderView, setFolderView] = useState<FolderView>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -181,6 +186,26 @@ export function BrowseScreen() {
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const filtersRef = useRef<HTMLElement | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const previewStopTimeoutRef = useRef<number | null>(null);
+  const previewSongIdRef = useRef<string | null>(null);
+
+  function stopPreview() {
+    if (previewStopTimeoutRef.current != null) {
+      window.clearTimeout(previewStopTimeoutRef.current);
+      previewStopTimeoutRef.current = null;
+    }
+
+    const audio = previewAudioRef.current;
+
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+
+    setPreviewPlaying(false);
+    setPreviewLoading(false);
+  }
 
   useEffect(() => {
     function handlePopState(event: PopStateEvent) {
@@ -204,6 +229,18 @@ export function BrowseScreen() {
     }, 1000);
     return () => window.clearTimeout(timeout);
   }, [justAdded]);
+
+  useEffect(() => {
+    return () => {
+      stopPreview();
+      previewAudioRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    stopPreview();
+    setPreviewError(null);
+  }, [selectedSong]);
 
   useEffect(() => {
     if (!selectedSong) {
@@ -665,6 +702,107 @@ export function BrowseScreen() {
     }
   }
 
+  async function togglePreview() {
+    if (!selectedSong) {
+      return;
+    }
+
+    if (previewPlaying) {
+      stopPreview();
+      return;
+    }
+
+    setPreviewError(null);
+    setPreviewLoading(true);
+
+    let audio = previewAudioRef.current;
+    const previewUrl = `/api/library/browse/songs/${selectedSong.id}/preview`;
+    const isNewSong = previewSongIdRef.current !== selectedSong.id;
+
+    if (!audio) {
+      audio = new Audio();
+      audio.preload = "auto";
+      audio.loop = false;
+      audio.addEventListener("ended", () => {
+        setPreviewPlaying(false);
+        setPreviewLoading(false);
+      });
+      audio.addEventListener("error", () => {
+        setPreviewPlaying(false);
+        setPreviewLoading(false);
+        setPreviewError("Preview unavailable");
+      });
+      previewAudioRef.current = audio;
+    }
+
+    if (isNewSong || !audio.src.endsWith(previewUrl)) {
+      audio.pause();
+      audio.src = previewUrl;
+      audio.load();
+      previewSongIdRef.current = selectedSong.id;
+    }
+
+    const previewStart = selectedSong.sampleStart ?? 0;
+    const previewLength = selectedSong.sampleLength ?? 15;
+
+    try {
+      if (audio.readyState < 1) {
+        await new Promise<void>((resolve, reject) => {
+          const handleLoadedMetadata = () => {
+            audio?.removeEventListener("loadedmetadata", handleLoadedMetadata);
+            audio?.removeEventListener("error", handleError);
+            resolve();
+          };
+          const handleError = () => {
+            audio?.removeEventListener("loadedmetadata", handleLoadedMetadata);
+            audio?.removeEventListener("error", handleError);
+            reject(new Error("Preview unavailable"));
+          };
+
+          audio?.addEventListener("loadedmetadata", handleLoadedMetadata, { once: true });
+          audio?.addEventListener("error", handleError, { once: true });
+        });
+      }
+
+      const targetTime = Math.max(0, previewStart);
+
+      if (Math.abs(audio.currentTime - targetTime) > 0.05) {
+        await new Promise<void>((resolve, reject) => {
+          const handleSeeked = () => {
+            audio?.removeEventListener("seeked", handleSeeked);
+            audio?.removeEventListener("error", handleError);
+            resolve();
+          };
+          const handleError = () => {
+            audio?.removeEventListener("seeked", handleSeeked);
+            audio?.removeEventListener("error", handleError);
+            reject(new Error("Preview unavailable"));
+          };
+
+          audio?.addEventListener("seeked", handleSeeked, { once: true });
+          audio?.addEventListener("error", handleError, { once: true });
+          audio.currentTime = targetTime;
+        });
+      }
+
+      await audio.play();
+      setPreviewPlaying(true);
+      setPreviewLoading(false);
+
+      if (previewStopTimeoutRef.current != null) {
+        window.clearTimeout(previewStopTimeoutRef.current);
+      }
+
+      previewStopTimeoutRef.current = window.setTimeout(() => {
+        stopPreview();
+      }, Math.max(1, previewLength) * 1000);
+    } catch {
+      setPreviewPlaying(false);
+      setPreviewLoading(false);
+      setPreviewError("Preview unavailable");
+    }
+  }
+
   function commitFilterField(field: keyof Filters) {
     setFilters((current) => {
       switch (field) {
@@ -1065,6 +1203,7 @@ export function BrowseScreen() {
             aria-label="Close song details"
             className="sheetBackdrop"
             onClick={() => {
+              stopPreview();
               setSelectedSong(null);
               setSelectedDifficulty(null);
             }}
@@ -1082,10 +1221,24 @@ export function BrowseScreen() {
               </div>
             ) : null}
             <header className="sheetHeader">
-              <div>
+              <div className="sheetHeaderCopy">
                 <h2>{selectedSong.title}</h2>
                 <p>{selectedSong.artist}</p>
               </div>
+              <button
+                className={`sheetPreviewButton${previewPlaying ? " isPlaying" : ""}`}
+                disabled={previewLoading}
+                onClick={() => void togglePreview()}
+                aria-label={previewLoading ? "Loading preview" : previewPlaying ? "Stop preview" : "Play preview"}
+                title={previewLoading ? "Loading preview" : previewPlaying ? "Stop preview" : "Play preview"}
+                type="button"
+              >
+                {previewPlaying || previewLoading ? (
+                  <StopIcon className="sheetPreviewIcon" />
+                ) : (
+                  <PlayIcon className="sheetPreviewIcon" />
+                )}
+              </button>
             </header>
 
             <div className="sheetMetaGrid">
@@ -1118,6 +1271,8 @@ export function BrowseScreen() {
                 ))}
               </div>
             </div>
+
+            {previewError ? <p className="muted">{previewError}</p> : null}
 
             <button
               className="primaryButton addButton"

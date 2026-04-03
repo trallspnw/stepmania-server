@@ -256,6 +256,8 @@ export async function GET(request: Request) {
         bpmLabel: formatBpmLabel(song.displayBpm, song.bpmMin, song.bpmMax),
         bpmFilterMin: song.bpmMin,
         bpmFilterMax: song.bpmMax,
+        sampleStart: song.sampleStart,
+        sampleLength: song.sampleLength,
         difficulties: [...normalizedCharts.entries()]
           .map(([slot, chart]) => ({
             chartId: chart.chartId,

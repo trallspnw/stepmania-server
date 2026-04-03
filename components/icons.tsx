@@ -119,6 +119,22 @@ export function CheckIcon(props: IconProps) {
   );
 }
 
+export function PlayIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M8 6.5v11l8.5-5.5z" fill="currentColor" stroke="none" />
+    </IconBase>
+  );
+}
+
+export function StopIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none" />
+    </IconBase>
+  );
+}
+
 export function CloseIcon(props: IconProps) {
   return (
     <IconBase {...props}>
