@@ -119,17 +119,28 @@ async function getCurrentQueueEntryInTx(tx: QueueDbClient): Promise<QueueEntryWi
 }
 
 export async function recomputeQueuedPlayOrder(tx: QueueDbClient) {
-  const queuedEntries = await tx.queueEntry.findMany({
-    where: {
-      status: "queued",
-    },
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    select: {
-      id: true,
-      userId: true,
-      createdAt: true,
-    },
-  });
+  const [queuedEntries, playingEntry] = await Promise.all([
+    tx.queueEntry.findMany({
+      where: {
+        status: "queued",
+      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: {
+        id: true,
+        userId: true,
+        createdAt: true,
+      },
+    }),
+    tx.queueEntry.findFirst({
+      where: {
+        status: "playing",
+      },
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+      select: {
+        userId: true,
+      },
+    }),
+  ]);
 
   const playerOrder: number[] = [];
   const groupedEntries = new Map<
@@ -150,6 +161,19 @@ export async function recomputeQueuedPlayOrder(tx: QueueDbClient) {
     }
 
     currentQueue.push({ id: entry.id, createdAt: entry.createdAt });
+  }
+
+  if (playingEntry) {
+    const playingUserIndex = playerOrder.indexOf(playingEntry.userId);
+
+    if (playingUserIndex >= 0) {
+      const rotatedPlayerOrder = [
+        ...playerOrder.slice(playingUserIndex + 1),
+        ...playerOrder.slice(0, playingUserIndex + 1),
+      ];
+
+      playerOrder.splice(0, playerOrder.length, ...rotatedPlayerOrder);
+    }
   }
 
   const orderedIds: number[] = [];
