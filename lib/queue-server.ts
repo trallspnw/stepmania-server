@@ -120,7 +120,10 @@ async function getCurrentQueueEntryInTx(tx: QueueDbClient): Promise<QueueEntryWi
   return entries[0] ?? null;
 }
 
-export async function recomputeQueuedPlayOrder(tx: QueueDbClient) {
+export async function recomputeQueuedPlayOrder(
+  tx: QueueDbClient,
+  options?: { previousTurnUserId?: number | null },
+) {
   const [queuedEntries, playingEntry] = await Promise.all([
     tx.queueEntry.findMany({
       where: {
@@ -165,13 +168,15 @@ export async function recomputeQueuedPlayOrder(tx: QueueDbClient) {
     currentQueue.push({ id: entry.id, createdAt: entry.createdAt });
   }
 
-  if (playingEntry) {
-    const playingUserIndex = playerOrder.indexOf(playingEntry.userId);
+  const pivotUserId = playingEntry?.userId ?? options?.previousTurnUserId ?? null;
 
-    if (playingUserIndex >= 0) {
+  if (pivotUserId != null) {
+    const pivotUserIndex = playerOrder.indexOf(pivotUserId);
+
+    if (pivotUserIndex >= 0) {
       const rotatedPlayerOrder = [
-        ...playerOrder.slice(playingUserIndex + 1),
-        ...playerOrder.slice(0, playingUserIndex + 1),
+        ...playerOrder.slice(pivotUserIndex + 1),
+        ...playerOrder.slice(0, pivotUserIndex + 1),
       ];
 
       playerOrder.splice(0, playerOrder.length, ...rotatedPlayerOrder);
@@ -418,7 +423,7 @@ export async function consumeCurrentQueueEntryWithExpectedId(expectedQueueEntryI
       },
     });
 
-    await recomputeQueuedPlayOrder(tx);
+    await recomputeQueuedPlayOrder(tx, { previousTurnUserId: currentEntry.user.id });
     const nextEntry = await getCurrentQueueEntryInTx(tx);
 
     return {
@@ -494,7 +499,7 @@ export async function finishCurrentQueueEntry(input: {
       },
     });
 
-    await recomputeQueuedPlayOrder(tx);
+    await recomputeQueuedPlayOrder(tx, { previousTurnUserId: currentEntry.user.id });
     const nextEntry = await getCurrentQueueEntryInTx(tx);
 
     return {
