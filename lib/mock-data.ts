@@ -587,8 +587,9 @@ export function getDifficultyGradient(song: Song) {
 
 export function getGradeTone(grade: Grade | string) {
   const normalized = grade.trim().toUpperCase();
+  const baseGrade = normalized.replace(/[+-]+$/g, "");
 
-  switch (normalized) {
+  switch (baseGrade) {
     case "AAA":
     case "AA":
     case "S":

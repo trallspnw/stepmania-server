@@ -180,6 +180,21 @@ function statusVariant(isActive: boolean) {
   return isActive ? "green" : "red";
 }
 
+function gradeVariant(grade: string) {
+  const normalized = grade.trim().toUpperCase();
+  const baseGrade = normalized.replace(/[+-]+$/g, "");
+
+  if (baseGrade === "S" || baseGrade === "AA" || baseGrade === "AAA") {
+    return "gold";
+  }
+
+  if (baseGrade === "A") {
+    return "green";
+  }
+
+  return "gray";
+}
+
 export function AdminConsole({
   currentUserId,
   initialUsers,
@@ -1740,7 +1755,7 @@ export function AdminConsole({
                                 {entry.score != null ? `${entry.score.toFixed(2)}%` : "-"}
                               </TableCell>
                               <TableCell>
-                                {entry.grade ? <Badge variant="gray">{entry.grade}</Badge> : "-"}
+                                {entry.grade ? <Badge variant={gradeVariant(entry.grade)}>{entry.grade}</Badge> : "-"}
                               </TableCell>
                               <TableCell>
                                 {entry.isTest ? <Badge variant="red">Test</Badge> : "-"}
