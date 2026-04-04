@@ -237,7 +237,7 @@ export function AdminConsole({
   });
   const [machineTestToken, setMachineTestToken] = useState("");
   const [machineQueueItemId, setMachineQueueItemId] = useState("");
-  const [machinePlayedDifficulty, setMachinePlayedDifficulty] = useState("Hard");
+  const [machineChartId, setMachineChartId] = useState("");
   const [machineFinishScore, setMachineFinishScore] = useState("100.00");
   const [machineFinishGrade, setMachineFinishGrade] = useState("A");
   const [machineTestResponse, setMachineTestResponse] = useState<MachineTestResponse | null>(null);
@@ -1830,7 +1830,7 @@ export function AdminConsole({
                           method: "POST",
                           body: {
                             queue_item_id: Number(machineQueueItemId),
-                            difficulty_name: machinePlayedDifficulty,
+                            chart_id: Number(machineChartId),
                           },
                           loadingKey: "machine-start",
                         })
@@ -1881,16 +1881,17 @@ export function AdminConsole({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="machine-played-difficulty">Played Difficulty For Start/Finish</Label>
+                    <Label htmlFor="machine-chart-id">Chart ID For Start/Finish</Label>
                     <Input
-                      id="machine-played-difficulty"
-                      onChange={(event) => setMachinePlayedDifficulty(event.target.value)}
-                      placeholder="Hard"
-                      value={machinePlayedDifficulty}
+                      id="machine-chart-id"
+                      inputMode="numeric"
+                      onChange={(event) => setMachineChartId(event.target.value)}
+                      placeholder="1002"
+                      value={machineChartId}
                     />
                     <p className="text-xs text-stone-500">
-                      Required for `POST /start` and `POST /finish`. The server normalizes aliases like
-                      `Challenge` to `Expert`.
+                      Required for `POST /start` and `POST /finish`. Use a `chart_id` from
+                      `GET /current` `chart_highscores`.
                     </p>
                   </div>
 
@@ -1941,7 +1942,7 @@ export function AdminConsole({
                             method: "POST",
                             body: {
                               queue_item_id: Number(machineQueueItemId),
-                              difficulty_name: machinePlayedDifficulty,
+                              chart_id: Number(machineChartId),
                               score: Number(machineFinishScore),
                               grade: machineFinishGrade,
                               test: true,

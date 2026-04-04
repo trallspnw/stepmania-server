@@ -147,7 +147,7 @@ This route is idempotent for the current queue head. If the current entry is alr
 ```json
 {
   "queue_item_id": 42,
-  "difficulty_name": "Hard"
+  "chart_id": 1002
 }
 ```
 
@@ -155,8 +155,8 @@ This route is idempotent for the current queue head. If the current entry is alr
 
 - `queue_item_id`
   Required positive integer. It must match the current queue head or the request fails with `400` and no state change occurs.
-- `difficulty_name`
-  Required non-empty string. This is the difficulty the client intends to play. The server normalizes common aliases like `Challenge` to `Expert` and resolves the chart against the queued song.
+- `chart_id`
+  Required positive integer. It must belong to the queued song and the queued chart mode. Use one of the `chart_highscores[].chart_id` values from `GET /api/game/song/current`.
 
 #### Success
 
@@ -166,6 +166,7 @@ This route is idempotent for the current queue head. If the current entry is alr
   "queue_item_id": 42,
   "song": {
     "file_path": "1Arc2008 - DDR X/Butterfly",
+    "chart_id": 1002,
     "difficulty_name": "Hard"
   },
   "player": {
@@ -201,13 +202,13 @@ or:
 or:
 
 ```json
-{ "error": "difficulty_name must be a non-empty string" }
+{ "error": "chart_id must be a positive integer" }
 ```
 
 or:
 
 ```json
-{ "error": "difficulty_name does not match an available chart for the queued song" }
+{ "error": "chart_id does not match an available chart for the queued song and mode" }
 ```
 
 Status: `400`
@@ -295,7 +296,7 @@ Records a completed play and advances the queue/current-song state.
 {
   "score": 100.00,
   "grade": "AAA",
-  "difficulty_name": "Hard",
+  "chart_id": 1002,
   "queue_item_id": 42
 }
 ```
@@ -305,7 +306,7 @@ Optional test payload:
 ```json
 {
   "queue_item_id": 42,
-  "difficulty_name": "Easy",
+  "chart_id": 1001,
   "score": 75.23,
   "grade": "B",
   "test": true
@@ -318,8 +319,8 @@ Optional test payload:
   Required non-negative decimal value
 - `grade`
   Required non-empty string
-- `difficulty_name`
-  Required non-empty string. This is the difficulty actually played by the client. The server normalizes common aliases like `Challenge` to `Expert` and resolves the chart against the queued song.
+- `chart_id`
+  Required positive integer. It must belong to the queued song and the queued chart mode. Use one of the `chart_highscores[].chart_id` values from `GET /api/game/song/current`.
 - `test`
   Optional boolean. When `true`, the resulting `PlayHistory` row is marked as test data
 - `queue_item_id`
@@ -358,11 +359,11 @@ If `queue_item_id` does not match the active queue head:
 
 Status: `400`
 
-If `difficulty_name` does not match an available chart for the queued song:
+If `chart_id` does not match an available chart for the queued song and mode:
 
 ```json
 {
-  "error": "difficulty_name does not match an available chart for the queued song"
+  "error": "chart_id does not match an available chart for the queued song and mode"
 }
 ```
 
@@ -419,7 +420,7 @@ Current behavior:
 
 - token may be omitted intentionally to test unauthorized responses
 - admin-triggered `POST /start`, `POST /skip`, and `POST /finish` requests must include `queue_item_id`
-- admin-triggered `POST /start` and `POST /finish` requests must also include the played `difficulty_name`
+- admin-triggered `POST /start` and `POST /finish` requests must also include `chart_id`
 - admin-triggered finish requests are forced to `test: true`
 - admin `History` tab can clear test-only history rows
 

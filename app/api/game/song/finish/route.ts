@@ -30,10 +30,7 @@ export async function POST(request: Request) {
     typeof body?.grade === "string"
       ? body.grade.trim()
       : "";
-  const playedDifficulty =
-    typeof body?.difficulty_name === "string"
-      ? body.difficulty_name.trim()
-      : "";
+  const chartId = Number(body?.chart_id);
   const queueItemId = Number(body?.queue_item_id);
 
   if (!Number.isFinite(score) || score < 0) {
@@ -50,9 +47,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!playedDifficulty) {
+  if (!Number.isInteger(chartId) || chartId <= 0) {
     return NextResponse.json(
-      { error: "difficulty_name must be a non-empty string" },
+      { error: "chart_id must be a positive integer" },
       { status: 400 },
     );
   }
@@ -66,7 +63,7 @@ export async function POST(request: Request) {
       expectedQueueItemId: body?.queue_item_id ?? null,
       score,
       grade,
-      difficultyName: playedDifficulty || null,
+      chartId: body?.chart_id ?? null,
     });
 
     return NextResponse.json(
@@ -80,7 +77,7 @@ export async function POST(request: Request) {
     grade,
     isTest,
     expectedQueueEntryId: queueItemId,
-    difficultyName: playedDifficulty,
+    chartId,
   });
 
   if (consumed.status === "finished") {
@@ -101,6 +98,7 @@ export async function POST(request: Request) {
       playerId: consumed.removed.user.id,
       score,
       grade,
+      chartId: consumed.playedChart.id,
       difficultyName: consumed.playedChart.difficultySlot,
       isTest,
       playedAt: new Date().toISOString(),
@@ -114,6 +112,7 @@ export async function POST(request: Request) {
       finishedSongPath: consumed.removed.song.filePath,
       playerId: consumed.removed.user.id,
       queueEntryId: consumed.removed.id,
+      chartId: consumed.playedChart.id,
       queuedDifficultyName: consumed.removed.chart.difficultySlot,
       playedDifficultyName: consumed.playedChart.difficultySlot,
       nextSongPath: consumed.next?.song.filePath ?? null,
@@ -137,7 +136,7 @@ export async function POST(request: Request) {
     });
   }
 
-  if (consumed.status === "invalid_difficulty") {
+  if (consumed.status === "invalid_chart") {
     console.info("[machine] game.song.finish", {
       machineTokenId: machineToken.id,
       machineTokenName: machineToken.name,
@@ -147,14 +146,13 @@ export async function POST(request: Request) {
       actualQueueItemId: consumed.current.id,
       actualSongPath: consumed.current.song.filePath,
       queuedDifficultyName: consumed.current.chart.difficultySlot,
-      difficultyName: playedDifficulty,
-      normalizedDifficultyName: consumed.normalizedDifficultyName,
+      chartId,
       score,
       grade,
     });
 
     return NextResponse.json(
-      { error: "difficulty_name does not match an available chart for the queued song" },
+      { error: "chart_id does not match an available chart for the queued song and mode" },
       { status: 400 },
     );
   }

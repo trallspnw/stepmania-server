@@ -324,7 +324,7 @@ export async function startCurrentQueueEntryWithExpectedId(expectedQueueEntryId:
 
 export async function startCurrentQueueEntryWithExpectedIdAndDifficulty(input: {
   expectedQueueEntryId: number;
-  difficultyName: string;
+  chartId: number;
 }) {
   return prisma.$transaction(async (tx) => {
     const currentEntry = await getCurrentQueueEntryInTx(tx);
@@ -342,28 +342,28 @@ export async function startCurrentQueueEntryWithExpectedIdAndDifficulty(input: {
       };
     }
 
-    const targetDifficulty = normalizeDifficultySlot(input.difficultyName);
-    const availableCharts = await tx.chart.findMany({
+    const playedChart = await tx.chart.findUnique({
       where: {
-        songId: currentEntry.song.id,
+        id: input.chartId,
       },
       select: {
         id: true,
+        songId: true,
+        gameMode: true,
         difficultySlot: true,
         meter: true,
       },
-      orderBy: [{ meter: "desc" }],
     });
-    const playedChart =
-      availableCharts.find(
-        (candidate) => normalizeDifficultySlot(candidate.difficultySlot) === targetDifficulty,
-      ) ?? null;
 
-    if (!playedChart) {
+    if (
+      !playedChart ||
+      playedChart.songId !== currentEntry.song.id ||
+      playedChart.gameMode !== currentEntry.chart.gameMode
+    ) {
       return {
-        status: "invalid_difficulty" as const,
+        status: "invalid_chart" as const,
         current: currentEntry,
-        normalizedDifficultyName: targetDifficulty,
+        chartId: input.chartId,
       };
     }
 
@@ -434,7 +434,7 @@ export async function finishCurrentQueueEntry(input: {
   grade: string;
   isTest?: boolean;
   expectedQueueEntryId: number;
-  difficultyName: string;
+  chartId: number;
 }) {
   return prisma.$transaction(async (tx) => {
     const currentEntry = await getCurrentQueueEntryInTx(tx);
@@ -452,28 +452,28 @@ export async function finishCurrentQueueEntry(input: {
       };
     }
 
-    const targetDifficulty = normalizeDifficultySlot(input.difficultyName);
-    const availableCharts = await tx.chart.findMany({
+    const playedChart = await tx.chart.findUnique({
       where: {
-        songId: currentEntry.song.id,
+        id: input.chartId,
       },
       select: {
         id: true,
+        songId: true,
+        gameMode: true,
         difficultySlot: true,
         meter: true,
       },
-      orderBy: [{ meter: "desc" }],
     });
-    const playedChart =
-      availableCharts.find(
-        (candidate) => normalizeDifficultySlot(candidate.difficultySlot) === targetDifficulty,
-      ) ?? null;
 
-    if (!playedChart) {
+    if (
+      !playedChart ||
+      playedChart.songId !== currentEntry.song.id ||
+      playedChart.gameMode !== currentEntry.chart.gameMode
+    ) {
       return {
-        status: "invalid_difficulty" as const,
+        status: "invalid_chart" as const,
         current: currentEntry,
-        normalizedDifficultyName: targetDifficulty,
+        chartId: input.chartId,
       };
     }
 

@@ -12,10 +12,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const queueItemId = Number(body?.queue_item_id);
-  const playedDifficulty =
-    typeof body?.difficulty_name === "string"
-      ? body.difficulty_name.trim()
-      : "";
+  const chartId = Number(body?.chart_id);
 
   if (!Number.isInteger(queueItemId) || queueItemId <= 0) {
     console.info("[machine] game.song.start", {
@@ -32,16 +29,16 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!playedDifficulty) {
+  if (!Number.isInteger(chartId) || chartId <= 0) {
     return NextResponse.json(
-      { error: "difficulty_name must be a non-empty string" },
+      { error: "chart_id must be a positive integer" },
       { status: 400 },
     );
   }
 
   const startedEntry = await startCurrentQueueEntryWithExpectedIdAndDifficulty({
     expectedQueueEntryId: queueItemId,
-    difficultyName: playedDifficulty,
+    chartId,
   });
 
   if (startedEntry.status === "missing") {
@@ -72,7 +69,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (startedEntry.status === "invalid_difficulty") {
+  if (startedEntry.status === "invalid_chart") {
     console.info("[machine] game.song.start", {
       machineTokenId: machineToken.id,
       machineTokenName: machineToken.name,
@@ -82,12 +79,11 @@ export async function POST(request: Request) {
       actualQueueItemId: startedEntry.current.id,
       actualSongPath: startedEntry.current.song.filePath,
       queuedDifficultyName: startedEntry.current.chart.difficultySlot,
-      difficultyName: playedDifficulty,
-      normalizedDifficultyName: startedEntry.normalizedDifficultyName,
+      chartId,
     });
 
     return NextResponse.json(
-      { error: "difficulty_name does not match an available chart for the queued song" },
+      { error: "chart_id does not match an available chart for the queued song and mode" },
       { status: 400 },
     );
   }
@@ -112,6 +108,7 @@ export async function POST(request: Request) {
     songPath: startedEntry.entry.song.filePath,
     playerId: startedEntry.entry.user.id,
     queueEntryId: startedEntry.entry.id,
+    chartId: startedEntry.playedChart.id,
     queuedDifficultyName: startedEntry.entry.chart.difficultySlot,
     playedDifficultyName: startedEntry.playedChart.difficultySlot,
   });
@@ -121,6 +118,7 @@ export async function POST(request: Request) {
     queue_item_id: startedEntry.entry.id,
     song: {
       file_path: startedEntry.entry.song.filePath,
+      chart_id: startedEntry.playedChart.id,
       difficulty_name: startedEntry.playedChart.difficultySlot,
     },
     player: {
