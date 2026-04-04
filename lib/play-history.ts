@@ -87,11 +87,13 @@ export async function getServerHighScore(input: {
 
 export async function getChartHighScoresForSong(input: {
   songId: number;
+  gameMode: string;
   userId: number | null;
 }) {
   const charts = await prisma.chart.findMany({
     where: {
       songId: input.songId,
+      gameMode: input.gameMode,
     },
     select: {
       id: true,
@@ -101,8 +103,26 @@ export async function getChartHighScoresForSong(input: {
     orderBy: [{ meter: "asc" }, { id: "asc" }],
   });
 
+  const normalizedCharts = new Map<
+    string,
+    {
+      id: number;
+      difficultySlot: string;
+      meter: number;
+    }
+  >();
+
+  for (const chart of charts) {
+    const normalizedDifficulty = normalizeDifficultySlot(chart.difficultySlot);
+    const currentChart = normalizedCharts.get(normalizedDifficulty);
+
+    if (!currentChart || chart.meter > currentChart.meter) {
+      normalizedCharts.set(normalizedDifficulty, chart);
+    }
+  }
+
   const chartHighScores = await Promise.all(
-    charts.map(async (chart) => {
+    [...normalizedCharts.values()].map(async (chart) => {
       const [userHighScore, serverHighScore] = await Promise.all([
         input.userId != null
           ? getUserHighScore({
@@ -127,7 +147,7 @@ export async function getChartHighScoresForSong(input: {
     }),
   );
 
-  return chartHighScores;
+  return chartHighScores.sort((left, right) => left.meter - right.meter || left.chart_id - right.chart_id);
 }
 
 export async function resolveSongChartByPath(input: {

@@ -63,6 +63,7 @@ export async function GET(request: Request) {
       : Promise.resolve(null),
     getChartHighScoresForSong({
       songId: currentQueueEntry.song.id,
+      gameMode: currentQueueEntry.chart.gameMode,
       userId: activePlayer.id,
     }),
   ]);

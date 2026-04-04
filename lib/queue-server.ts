@@ -26,6 +26,7 @@ type QueueEntryWithRelations = {
   };
   chart: {
     id: number;
+    gameMode: string;
     difficultySlot: string;
     meter: number;
   };
@@ -103,6 +104,7 @@ async function getQueueEntriesWithRelations(tx: QueueDbClient): Promise<QueueEnt
       chart: {
         select: {
           id: true,
+          gameMode: true,
           difficultySlot: true,
           meter: true,
         },
