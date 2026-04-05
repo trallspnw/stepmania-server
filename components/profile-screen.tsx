@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
-import { KeyRound, RefreshCw, Trash2 } from "lucide-react";
+import { Check, KeyRound, RefreshCw, Trash2, UserRound } from "lucide-react";
 import { LogOutIcon, MusicIcon, TrophyIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +20,17 @@ import { useApp } from "@/lib/app-context";
 import { formatRelativeTime, getDifficultyTone, getGradeTone } from "@/lib/mock-data";
 
 export function ProfileScreen() {
-  const { currentUser, historyEntries, historyLoading, queueEntries, queueLoading } = useApp();
+  const {
+    currentUser,
+    historyEntries,
+    historyLoading,
+    queueEntries,
+    queueLoading,
+    setCurrentUser,
+  } = useApp();
+  const [displayName, setDisplayName] = useState(currentUser.displayName);
+  const [displayNameError, setDisplayNameError] = useState<string | null>(null);
+  const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -33,6 +43,10 @@ export function ProfileScreen() {
 
   const myQueueEntries = queueEntries.filter((entry) => entry.user.id === currentUser.id);
   const myHistoryEntries = historyEntries.filter((entry) => entry.user.id === currentUser.id);
+
+  useEffect(() => {
+    setDisplayName(currentUser.displayName);
+  }, [currentUser.displayName]);
 
   function pushToast(title: string, variant: ToastMessage["variant"] = "default") {
     const id = nextToastId.current;
@@ -79,6 +93,63 @@ export function ProfileScreen() {
     pushToast("Password updated");
   }
 
+  async function handleDisplayNameUpdate() {
+    const nextDisplayName = displayName.trim();
+
+    if (!nextDisplayName) {
+      setDisplayNameError("Display name is required.");
+      return;
+    }
+
+    if (nextDisplayName === currentUser.displayName) {
+      setDisplayNameError(null);
+      return;
+    }
+
+    setDisplayNameError(null);
+    setIsSavingDisplayName(true);
+
+    const response = await fetch("/api/profile/account", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ displayName: nextDisplayName }),
+    });
+
+    setIsSavingDisplayName(false);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+
+      switch (data.error) {
+        case "display_name_taken":
+          setDisplayNameError("That display name is already taken.");
+          break;
+        case "missing_fields":
+          setDisplayNameError("Display name is required.");
+          break;
+        default:
+          setDisplayNameError("Display name update failed.");
+          break;
+      }
+
+      return;
+    }
+
+    const data = (await response.json()) as {
+      user: { id: number; displayName: string; isAdmin: boolean };
+    };
+
+    setCurrentUser({
+      id: data.user.id,
+      displayName: data.user.displayName,
+      isAdmin: data.user.isAdmin,
+    });
+    setDisplayName(data.user.displayName);
+    pushToast("Display name updated");
+  }
+
   async function handleDeleteAccount() {
     setIsDeletingAccount(true);
 
@@ -104,6 +175,50 @@ export function ProfileScreen() {
         <div>
           <h2>{currentUser.displayName}</h2>
           {currentUser.isAdmin ? <span className="softPill">Admin</span> : null}
+        </div>
+      </section>
+
+      <section className="card panelCard">
+        <header className="panelHeader">
+          <div className="panelTitle">
+            <UserRound className="tinyIcon" />
+            <span>Account</span>
+          </div>
+        </header>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="profile-display-name">Display Name</Label>
+            <Input
+              id="profile-display-name"
+              maxLength={64}
+              onChange={(event) => setDisplayName(event.target.value)}
+              value={displayName}
+            />
+          </div>
+
+          {displayNameError ? <p className="text-sm text-red-600">{displayNameError}</p> : null}
+
+          <div className="profileActionRow">
+            <p className="muted profileActionHint">Update the name shown throughout the app.</p>
+            <Button
+              className="profileActionButton"
+              disabled={isSavingDisplayName || displayName.trim() === currentUser.displayName}
+              onClick={handleDisplayNameUpdate}
+              type="button"
+            >
+              {isSavingDisplayName ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Saving
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Save Username
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </section>
 

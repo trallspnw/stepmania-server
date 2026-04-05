@@ -692,6 +692,31 @@
   gap: 0.9rem;
 }
 
+.root :global(.profileActionRow) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.root :global(.profileActionHint) {
+  flex: 1;
+}
+
+.root :global(.profileActionButton) {
+  min-width: 11.5rem;
+  height: 2.9rem;
+  padding-inline: 1rem;
+  border: 1px solid rgba(166, 108, 28, 0.3);
+  background: linear-gradient(180deg, #f3bf56 0%, #d7911d 100%);
+  color: #2f1d05;
+  box-shadow: 0 10px 22px rgba(184, 123, 30, 0.2);
+}
+
+.root :global(.profileActionButton:hover) {
+  background: linear-gradient(180deg, #f6c868 0%, #dd9c27 100%);
+}
+
 .root :global(.logoutButton.ghostButton) {
   width: 100%;
   padding: 0.95rem 1rem;
