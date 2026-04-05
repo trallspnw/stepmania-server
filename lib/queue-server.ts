@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { normalizeDifficultySlot } from "@/lib/library-browser";
+import { insertIntoActiveQueueOrder } from "@/lib/queue-order";
 import type { QueueEntryRecord } from "@/lib/queue-types";
 import { prisma } from "@/lib/prisma";
 
@@ -124,28 +125,28 @@ export async function recomputeQueuedPlayOrder(
   tx: QueueDbClient,
   options?: { previousTurnUserId?: number | null },
 ) {
-  const [queuedEntries, playingEntry] = await Promise.all([
-    tx.queueEntry.findMany({
-      where: {
-        status: "queued",
+  const activeEntries = await tx.queueEntry.findMany({
+    where: {
+      status: {
+        in: ["queued", "playing"],
       },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      select: {
-        id: true,
-        userId: true,
-        createdAt: true,
-      },
-    }),
-    tx.queueEntry.findFirst({
-      where: {
-        status: "playing",
-      },
-      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
-      select: {
-        userId: true,
-      },
-    }),
-  ]);
+    },
+    orderBy: [{ playOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      userId: true,
+      createdAt: true,
+      status: true,
+    },
+  });
+
+  const playingEntry = activeEntries.find((entry) => entry.status === "playing") ?? null;
+  const anchoredQueuedHead = playingEntry
+    ? null
+    : activeEntries.find((entry) => entry.status === "queued") ?? null;
+  const queuedEntries = activeEntries.filter(
+    (entry) => entry.status === "queued" && entry.id !== anchoredQueuedHead?.id,
+  );
 
   const playerOrder: number[] = [];
   const groupedEntries = new Map<
@@ -168,7 +169,8 @@ export async function recomputeQueuedPlayOrder(
     currentQueue.push({ id: entry.id, createdAt: entry.createdAt });
   }
 
-  const pivotUserId = playingEntry?.userId ?? options?.previousTurnUserId ?? null;
+  const pivotUserId =
+    playingEntry?.userId ?? anchoredQueuedHead?.userId ?? options?.previousTurnUserId ?? null;
 
   if (pivotUserId != null) {
     const pivotUserIndex = playerOrder.indexOf(pivotUserId);
@@ -183,7 +185,7 @@ export async function recomputeQueuedPlayOrder(
     }
   }
 
-  const orderedIds: number[] = [];
+  const orderedIds: number[] = anchoredQueuedHead ? [anchoredQueuedHead.id] : [];
   let progressed = true;
 
   while (progressed) {
@@ -202,6 +204,19 @@ export async function recomputeQueuedPlayOrder(
     }
   }
 
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      tx.queueEntry.update({
+        where: { id },
+        data: {
+          playOrder: index + 1,
+        },
+      }),
+    ),
+  );
+}
+
+async function renumberQueueEntries(tx: QueueDbClient, orderedIds: number[]) {
   await Promise.all(
     orderedIds.map((id, index) =>
       tx.queueEntry.update({
@@ -243,17 +258,43 @@ export async function addQueueEntry(input: {
       throw new Error("Chart does not belong to song.");
     }
 
-    await tx.queueEntry.create({
+    const activeEntries = await tx.queueEntry.findMany({
+      where: {
+        status: {
+          in: ["queued", "playing"],
+        },
+      },
+      orderBy: [{ playOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }],
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+      },
+    });
+
+    const createdEntry = await tx.queueEntry.create({
       data: {
         userId: input.userId,
         songId: input.songId,
         chartId: input.chartId,
         status: "queued",
-        playOrder: 0,
+        playOrder: activeEntries.length + 1,
       },
     });
 
-    await recomputeQueuedPlayOrder(tx);
+    const orderedIds = insertIntoActiveQueueOrder(
+      activeEntries.map((entry) => ({
+        id: entry.id,
+        userId: entry.userId,
+        status: entry.status === "playing" ? "playing" : "queued",
+      })),
+      {
+        id: createdEntry.id,
+        userId: createdEntry.userId,
+      },
+    ).map((entry) => entry.id);
+
+    await renumberQueueEntries(tx, orderedIds);
   });
 }
 
@@ -286,8 +327,6 @@ export async function removeQueueEntry(input: {
         id: entry.id,
       },
     });
-
-    await recomputeQueuedPlayOrder(tx);
   });
 }
 
@@ -422,8 +461,6 @@ export async function consumeCurrentQueueEntryWithExpectedId(expectedQueueEntryI
         id: currentEntry.id,
       },
     });
-
-    await recomputeQueuedPlayOrder(tx, { previousTurnUserId: currentEntry.user.id });
     const nextEntry = await getCurrentQueueEntryInTx(tx);
 
     return {
@@ -498,8 +535,6 @@ export async function finishCurrentQueueEntry(input: {
         id: currentEntry.id,
       },
     });
-
-    await recomputeQueuedPlayOrder(tx, { previousTurnUserId: currentEntry.user.id });
     const nextEntry = await getCurrentQueueEntryInTx(tx);
 
     return {

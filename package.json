@@ -17,7 +17,8 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:status": "prisma migrate status",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "test:queue": "rm -rf .tmp/queue-tests && pnpm exec tsc --outDir .tmp/queue-tests --module nodenext --moduleResolution nodenext --target es2022 tests/queue-order.test.ts lib/queue-order.ts && node --test .tmp/queue-tests/tests/queue-order.test.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
