@@ -85,6 +85,10 @@ type ChartIngestResult = {
 };
 
 type AdminHistoryResponse = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
   entries: HistoryRecord[];
   testCount: number;
 };
@@ -198,6 +202,7 @@ function gradeVariant(grade: string) {
 }
 
 const adminTabs = ["library", "queue", "system", "users", "history", "test"];
+const HISTORY_PAGE_SIZE = 100;
 
 export function AdminConsole({
   currentUserId,
@@ -258,6 +263,9 @@ export function AdminConsole({
   const [clearQueueDialogOpen, setClearQueueDialogOpen] = useState(false);
   const [adminHistoryEntries, setAdminHistoryEntries] = useState<HistoryRecord[]>([]);
   const [adminHistoryLoading, setAdminHistoryLoading] = useState(false);
+  const [adminHistoryTotal, setAdminHistoryTotal] = useState(0);
+  const [adminHistoryTotalPages, setAdminHistoryTotalPages] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
   const [adminTestHistoryCount, setAdminTestHistoryCount] = useState(0);
   const [clearTestHistoryDialogOpen, setClearTestHistoryDialogOpen] = useState(false);
   const [ingestionStatus, setIngestionStatus] = useState<IngestionStatus | null>(null);
@@ -357,12 +365,12 @@ export function AdminConsole({
     setAdminQueueEntries(data.entries);
   }
 
-  async function loadAdminHistory(options?: { silent?: boolean }) {
+  async function loadAdminHistory(page: number, options?: { silent?: boolean }) {
     if (!options?.silent) {
       setAdminHistoryLoading(true);
     }
 
-    const response = await fetch("/api/admin/history", {
+    const response = await fetch(`/api/admin/history?page=${page}`, {
       cache: "no-store",
     });
 
@@ -379,6 +387,8 @@ export function AdminConsole({
 
     const data = (await response.json()) as AdminHistoryResponse;
     setAdminHistoryEntries(data.entries);
+    setAdminHistoryTotal(data.total);
+    setAdminHistoryTotalPages(data.totalPages);
     setAdminTestHistoryCount(data.testCount);
   }
 
@@ -495,16 +505,16 @@ export function AdminConsole({
       return;
     }
 
-    void loadAdminHistory();
+    void loadAdminHistory(historyPage);
 
     const interval = window.setInterval(() => {
-      void loadAdminHistory({ silent: true });
+      void loadAdminHistory(historyPage, { silent: true });
     }, 5000);
 
     return () => {
       window.clearInterval(interval);
     };
-  }, [activeTab]);
+  }, [activeTab, historyPage]);
 
   useEffect(() => {
     if (!ingestionStatus) {
@@ -1842,7 +1852,7 @@ export function AdminConsole({
                     <div className="flex gap-2">
                       <Button
                         disabled={adminHistoryLoading}
-                        onClick={() => void loadAdminHistory()}
+                        onClick={() => void loadAdminHistory(historyPage)}
                         type="button"
                         variant="outline"
                       >
@@ -1863,7 +1873,8 @@ export function AdminConsole({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="text-sm text-stone-600">
-                    {adminHistoryEntries.length} recent record{adminHistoryEntries.length === 1 ? "" : "s"}
+                    {adminHistoryTotal} record{adminHistoryTotal === 1 ? "" : "s"} total, page{" "}
+                    {historyPage} of {adminHistoryTotalPages}
                     {adminTestHistoryCount > 0 ? `, ${adminTestHistoryCount} flagged as test` : ""}
                   </div>
 
@@ -1936,6 +1947,32 @@ export function AdminConsole({
                         )}
                       </TableBody>
                     </Table>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-stone-600">
+                      Showing up to {HISTORY_PAGE_SIZE} records per page
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        disabled={adminHistoryLoading || historyPage <= 1}
+                        onClick={() => setHistoryPage((current) => Math.max(1, current - 1))}
+                        type="button"
+                        variant="outline"
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        disabled={adminHistoryLoading || historyPage >= adminHistoryTotalPages}
+                        onClick={() =>
+                          setHistoryPage((current) => Math.min(adminHistoryTotalPages, current + 1))
+                        }
+                        type="button"
+                        variant="outline"
+                      >
+                        Next
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

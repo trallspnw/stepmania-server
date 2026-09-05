@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToastMessage, ToastViewport } from "@/components/ui/toast";
+import type { HistoryRecord } from "@/lib/history-types";
 import { useApp } from "@/lib/app-context";
 import { formatRelativeTime, getDifficultyTone, getGradeTone } from "@/lib/mock-data";
 
@@ -23,8 +24,6 @@ export function ProfileScreen() {
   const {
     activeProfile,
     currentUser,
-    historyEntries,
-    historyLoading,
     queueEntries,
     queueLoading,
     setActiveProfile,
@@ -45,8 +44,24 @@ export function ProfileScreen() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const nextToastId = useRef(1);
 
+  const [myHistoryEntries, setMyHistoryEntries] = useState<HistoryRecord[]>([]);
+  const [myHistoryLoading, setMyHistoryLoading] = useState(true);
+  const [myHistoryTotal, setMyHistoryTotal] = useState(0);
+  const [myHistoryTotalPages, setMyHistoryTotalPages] = useState(1);
+  const [myHistoryPage, setMyHistoryPage] = useState(1);
+  const [activeProfileIdForHistory, setActiveProfileIdForHistory] = useState(activeProfile.id);
+
   const myQueueEntries = queueEntries.filter((entry) => entry.user.id === activeProfile.id);
-  const myHistoryEntries = historyEntries.filter((entry) => entry.user.id === activeProfile.id);
+
+  // Reset to page 1 when the active profile changes, computed during render
+  // (not an effect) so the subsequent fetch effect only ever runs once per switch.
+  if (activeProfileIdForHistory !== activeProfile.id) {
+    setActiveProfileIdForHistory(activeProfile.id);
+
+    if (myHistoryPage !== 1) {
+      setMyHistoryPage(1);
+    }
+  }
 
   useEffect(() => {
     setLoginName(currentUser.loginName);
@@ -55,6 +70,48 @@ export function ProfileScreen() {
   useEffect(() => {
     setDisplayName(activeProfile.displayName);
   }, [activeProfile.displayName]);
+
+  async function loadMyHistory(page: number, options?: { silent?: boolean }) {
+    if (!options?.silent) {
+      setMyHistoryLoading(true);
+    }
+
+    const response = await fetch(`/api/profile/history?page=${page}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+
+    if (!options?.silent) {
+      setMyHistoryLoading(false);
+    }
+
+    if (!response.ok) {
+      return;
+    }
+
+    const data = (await response.json()) as {
+      page: number;
+      total: number;
+      totalPages: number;
+      entries: HistoryRecord[];
+    };
+
+    setMyHistoryEntries(data.entries);
+    setMyHistoryTotal(data.total);
+    setMyHistoryTotalPages(data.totalPages);
+  }
+
+  useEffect(() => {
+    void loadMyHistory(myHistoryPage);
+
+    const interval = window.setInterval(() => {
+      void loadMyHistory(myHistoryPage, { silent: true });
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [activeProfile.id, myHistoryPage]);
 
   function pushToast(title: string, variant: ToastMessage["variant"] = "default") {
     const id = nextToastId.current;
@@ -318,36 +375,68 @@ export function ProfileScreen() {
         <header className="panelHeader">
           <div className="panelTitle">
             <TrophyIcon className="tinyIcon" />
-            <span>My History ({myHistoryEntries.length})</span>
+            <span>My History ({myHistoryTotal})</span>
           </div>
         </header>
-        {historyLoading ? (
+        {myHistoryLoading ? (
           <p className="muted">Loading history...</p>
         ) : myHistoryEntries.length === 0 ? (
           <p className="muted">No play history yet.</p>
         ) : (
-          <div className="stack tight">
-            {myHistoryEntries.map((entry) => {
-              return (
-                <div className="splitRow" key={entry.id}>
-                  <div>
-                    <h3>{entry.song.title}</h3>
-                    <div className="metaRow wrap">
-                      <span className={`pill ${getDifficultyTone(entry.chart.difficultySlot)}`}>
-                        {entry.chart.difficultySlot} {entry.chart.meter}
-                      </span>
-                      {entry.score != null ? <span className="muted">{entry.score.toFixed(2)}%</span> : null}
-                      {entry.isTest ? <span className="softPill">Test</span> : null}
-                      <span className="muted">{formatRelativeTime(new Date(entry.playedAt))}</span>
+          <>
+            <div className="stack tight">
+              {myHistoryEntries.map((entry) => {
+                return (
+                  <div className="splitRow" key={entry.id}>
+                    <div>
+                      <h3>{entry.song.title}</h3>
+                      <div className="metaRow wrap">
+                        <span className={`pill ${getDifficultyTone(entry.chart.difficultySlot)}`}>
+                          {entry.chart.difficultySlot} {entry.chart.meter}
+                        </span>
+                        {entry.score != null ? <span className="muted">{entry.score.toFixed(2)}%</span> : null}
+                        {entry.isTest ? <span className="softPill">Test</span> : null}
+                        <span className="muted">{formatRelativeTime(new Date(entry.playedAt))}</span>
+                      </div>
                     </div>
+                    <span className={`pill gradePill ${getGradeTone(entry.grade ?? "C")}`}>
+                      {entry.grade ?? "-"}
+                    </span>
                   </div>
-                  <span className={`pill gradePill ${getGradeTone(entry.grade ?? "C")}`}>
-                    {entry.grade ?? "-"}
-                  </span>
+                );
+              })}
+            </div>
+
+            {myHistoryTotalPages > 1 ? (
+              <div className="flex items-center justify-between gap-3 pt-3">
+                <span className="muted">
+                  Page {myHistoryPage} of {myHistoryTotalPages}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    disabled={myHistoryPage <= 1}
+                    onClick={() => setMyHistoryPage((current) => Math.max(1, current - 1))}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    disabled={myHistoryPage >= myHistoryTotalPages}
+                    onClick={() =>
+                      setMyHistoryPage((current) => Math.min(myHistoryTotalPages, current + 1))
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    Next
+                  </Button>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            ) : null}
+          </>
         )}
       </section>
 

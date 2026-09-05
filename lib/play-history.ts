@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { normalizeDifficultySlot } from "@/lib/library-browser";
 import { prisma } from "@/lib/prisma";
 
@@ -191,35 +192,35 @@ export async function resolveSongChartByPath(input: {
   };
 }
 
-export async function getRecentPlayHistory(limit = 100) {
-  const entries = await prisma.playHistory.findMany({
-    orderBy: [{ playedAt: "desc" }, { id: "desc" }],
-    take: limit,
-    include: {
-      user: {
-        select: {
-          id: true,
-          displayName: true,
-        },
-      },
-      song: {
-        select: {
-          id: true,
-          title: true,
-          artist: true,
-        },
-      },
-      chart: {
-        select: {
-          id: true,
-          difficultySlot: true,
-          meter: true,
-        },
-      },
+const PLAY_HISTORY_INCLUDE = {
+  user: {
+    select: {
+      id: true,
+      displayName: true,
     },
-  });
+  },
+  song: {
+    select: {
+      id: true,
+      title: true,
+      artist: true,
+    },
+  },
+  chart: {
+    select: {
+      id: true,
+      difficultySlot: true,
+      meter: true,
+    },
+  },
+} as const;
 
-  return entries.map((entry) => ({
+type PlayHistoryEntryWithRelations = Prisma.PlayHistoryGetPayload<{
+  include: typeof PLAY_HISTORY_INCLUDE;
+}>;
+
+function mapPlayHistoryEntry(entry: PlayHistoryEntryWithRelations) {
+  return {
     id: entry.id,
     playedAt: entry.playedAt.toISOString(),
     score: toScoreNumber(entry.score),
@@ -239,7 +240,58 @@ export async function getRecentPlayHistory(limit = 100) {
       difficultySlot: normalizeDifficultySlot(entry.chart.difficultySlot),
       meter: entry.chart.meter,
     },
-  }));
+  };
+}
+
+export async function getRecentPlayHistory(limit = 100) {
+  const entries = await prisma.playHistory.findMany({
+    orderBy: [{ playedAt: "desc" }, { id: "desc" }],
+    take: limit,
+    include: PLAY_HISTORY_INCLUDE,
+  });
+
+  return entries.map(mapPlayHistoryEntry);
+}
+
+export async function getPaginatedPlayHistory(input: { page: number; pageSize: number }) {
+  const [total, entries] = await Promise.all([
+    prisma.playHistory.count(),
+    prisma.playHistory.findMany({
+      orderBy: [{ playedAt: "desc" }, { id: "desc" }],
+      skip: (input.page - 1) * input.pageSize,
+      take: input.pageSize,
+      include: PLAY_HISTORY_INCLUDE,
+    }),
+  ]);
+
+  return {
+    total,
+    entries: entries.map(mapPlayHistoryEntry),
+  };
+}
+
+export async function getPaginatedPlayHistoryForUser(input: {
+  userId: number;
+  page: number;
+  pageSize: number;
+}) {
+  const [total, entries] = await Promise.all([
+    prisma.playHistory.count({
+      where: { userId: input.userId },
+    }),
+    prisma.playHistory.findMany({
+      where: { userId: input.userId },
+      orderBy: [{ playedAt: "desc" }, { id: "desc" }],
+      skip: (input.page - 1) * input.pageSize,
+      take: input.pageSize,
+      include: PLAY_HISTORY_INCLUDE,
+    }),
+  ]);
+
+  return {
+    total,
+    entries: entries.map(mapPlayHistoryEntry),
+  };
 }
 
 export async function clearTestPlayHistory() {
