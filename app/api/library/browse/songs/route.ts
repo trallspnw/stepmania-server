@@ -57,6 +57,7 @@ export async function GET(request: Request) {
   const page = getPage(request);
   const gameMode = normalizeLibraryGameMode(await getSetting(SETTING_KEYS.LIBRARY_GAME_MODE));
   const query = url.searchParams.get("query")?.trim() ?? "";
+  const lowerQuery = query.toLowerCase();
   const sortByPopularity = url.searchParams.get("sort") === "popular";
   const packId = Number(url.searchParams.get("packId") ?? "");
   const minDifficulty = getOptionalNumberParam(url.searchParams, "minDifficulty");
@@ -191,6 +192,47 @@ export async function GET(request: Request) {
     return { total, songs };
   }
 
+  function getQueryRelevanceRank(song: {
+    title: string;
+    artist: string | null;
+    pack: { folderName: string; titles: string };
+  }) {
+    const startsWithQuery = (value: string) => value.trim().toLowerCase().startsWith(lowerQuery);
+
+    if (startsWithQuery(song.title)) {
+      return 0;
+    }
+
+    if (song.artist && startsWithQuery(song.artist)) {
+      return 1;
+    }
+
+    const packTitle = getDisplayTitleFromTitles(song.pack.titles) || song.pack.folderName;
+
+    if (startsWithQuery(packTitle) || startsWithQuery(song.pack.folderName)) {
+      return 2;
+    }
+
+    return 3;
+  }
+
+  async function loadSongsRankedByRelevance() {
+    const matches = await prisma.song.findMany({
+      where,
+      include: songInclude,
+    });
+
+    matches.sort((left, right) => {
+      const rankDiff = getQueryRelevanceRank(left) - getQueryRelevanceRank(right);
+      return rankDiff !== 0 ? rankDiff : left.title.localeCompare(right.title);
+    });
+
+    return {
+      total: matches.length,
+      songs: matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    };
+  }
+
   async function loadSongsSortedByPopularity() {
     const popularityGroups = await prisma.playHistory.groupBy({
       by: ["songId"],
@@ -227,7 +269,11 @@ export async function GET(request: Request) {
   }
 
   const [{ total, songs }, songBpmBounds, chartDifficultyBounds] = await Promise.all([
-    sortByPopularity ? loadSongsSortedByPopularity() : loadSongsSortedByTitle(),
+    sortByPopularity
+      ? loadSongsSortedByPopularity()
+      : query
+        ? loadSongsRankedByRelevance()
+        : loadSongsSortedByTitle(),
     prisma.song.aggregate({
       where: {
         ...baseWhere,
