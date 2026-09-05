@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { AdminConsole } from "@/components/admin-console";
 import { getSessionUserRecord } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -36,28 +37,30 @@ export default async function AdminPage() {
   ]);
 
   return (
-    <AdminConsole
-      currentUserId={result.user.id}
-      initialInvites={pendingInvites.map((invite) => ({
-        id: invite.id,
-        roleIsAdmin: invite.roleIsAdmin,
-        expiresAt: invite.expiresAt.toISOString(),
-        createdAt: invite.createdAt.toISOString(),
-      }))}
-      initialMachineTokens={machineTokens.map((token) => ({
-        id: token.id,
-        name: token.name,
-        tokenPrefix: token.token.slice(0, 8),
-        lastSeen: token.lastSeen?.toISOString() ?? null,
-        createdAt: token.createdAt.toISOString(),
-      }))}
-      initialUsers={users.map((user) => ({
-        id: user.id,
-        displayName: user.displayName,
-        isAdmin: user.isAdmin,
-        isActive: user.isActive,
-        createdAt: user.createdAt.toISOString(),
-      }))}
-    />
+    <Suspense fallback={null}>
+      <AdminConsole
+        currentUserId={result.user.id}
+        initialInvites={pendingInvites.map((invite) => ({
+          id: invite.id,
+          roleIsAdmin: invite.roleIsAdmin,
+          expiresAt: invite.expiresAt.toISOString(),
+          createdAt: invite.createdAt.toISOString(),
+        }))}
+        initialMachineTokens={machineTokens.map((token) => ({
+          id: token.id,
+          name: token.name,
+          tokenPrefix: token.token.slice(0, 8),
+          lastSeen: token.lastSeen?.toISOString() ?? null,
+          createdAt: token.createdAt.toISOString(),
+        }))}
+        initialUsers={users.map((user) => ({
+          id: user.id,
+          displayName: user.displayName,
+          isAdmin: user.isAdmin,
+          isActive: user.isActive,
+          createdAt: user.createdAt.toISOString(),
+        }))}
+      />
+    </Suspense>
   );
 }

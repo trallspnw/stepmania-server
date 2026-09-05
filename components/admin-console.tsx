@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Copy, KeyRound, RefreshCw, Shield, ShieldOff, Trash2, UserX } from "lucide-react";
 import { LIBRARY_GAME_MODE_OPTIONS } from "@/lib/library-mode";
 import { formatRelativeTime } from "@/lib/relative-time";
@@ -195,13 +195,25 @@ function gradeVariant(grade: string) {
   return "gray";
 }
 
+const adminTabs = ["library", "queue", "system", "users", "history", "test"];
+
 export function AdminConsole({
   currentUserId,
   initialUsers,
   initialInvites,
   initialMachineTokens,
 }: AdminConsoleProps) {
-  const [activeTab, setActiveTab] = useState("library");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab = adminTabs.includes(tabParam ?? "") ? (tabParam as string) : "library";
+
+  function setActiveTab(tab: string) {
+    const params = new URLSearchParams(searchParams);
+    params.set("tab", tab);
+    router.push(`/admin?${params.toString()}`);
+  }
+
   const [users, setUsers] = useState(initialUsers);
   const [invites, setInvites] = useState(initialInvites);
   const [machineTokens, setMachineTokens] = useState(initialMachineTokens);
@@ -261,7 +273,6 @@ export function AdminConsole({
   const nextToastId = useRef(1);
   const signingOutRef = useRef(false);
   const lastIngestionStatusRef = useRef<IngestionStatus["status"] | null>(null);
-  const router = useRouter();
 
   const sortedUsers = useMemo(
     () => [...users].sort((a, b) => a.displayName.localeCompare(b.displayName)),

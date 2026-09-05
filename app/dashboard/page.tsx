@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { DanceQueueApp } from "@/components/dance-queue-app";
 import { getSessionUserRecord } from "@/lib/admin";
 
@@ -12,12 +13,14 @@ export default async function DashboardPage() {
   }
 
   return (
-    <DanceQueueApp
-      currentUser={{
-        id: result.user.id,
-        displayName: result.user.displayName,
-        isAdmin: result.user.isAdmin,
-      }}
-    />
+    <Suspense fallback={null}>
+      <DanceQueueApp
+        currentUser={{
+          id: result.user.id,
+          displayName: result.user.displayName,
+          isAdmin: result.user.isAdmin,
+        }}
+      />
+    </Suspense>
   );
 }

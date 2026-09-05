@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CSSProperties,
   KeyboardEvent,
@@ -45,10 +46,6 @@ type FolderView =
   | { type: "pack"; packId: number; value: string }
   | { type: "artist"; value: string }
   | null;
-
-type FolderHistoryState = {
-  browseFolderView?: Exclude<FolderView, null>;
-};
 
 interface Filters {
   minDifficulty: number | null;
@@ -145,6 +142,60 @@ function filtersToInputs(filters: Filters): FilterInputs {
 
 export function BrowseScreen() {
   const { addToQueue } = useApp();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const modeParam = searchParams.get("mode");
+  const browseMode: BrowseMode =
+    modeParam === "packs" || modeParam === "artists" ? modeParam : "search";
+
+  const packIdParam = searchParams.get("packId");
+  const packLabelParam = searchParams.get("packLabel");
+  const artistParam = searchParams.get("artist");
+  const folderView: FolderView = useMemo(() => {
+    if (packIdParam) {
+      return { type: "pack", packId: Number(packIdParam), value: packLabelParam ?? "" };
+    }
+
+    if (artistParam) {
+      return { type: "artist", value: artistParam };
+    }
+
+    return null;
+  }, [packIdParam, packLabelParam, artistParam]);
+
+  const songParam = searchParams.get("song");
+
+  function updateBrowseParams(
+    mutate: (params: URLSearchParams) => void,
+    options?: { replace?: boolean },
+  ) {
+    const params = new URLSearchParams(searchParams);
+    mutate(params);
+    const query = params.toString();
+    const url = query ? `${pathname}?${query}` : pathname;
+
+    if (options?.replace) {
+      router.replace(url);
+    } else {
+      router.push(url);
+    }
+  }
+
+  function setBrowseMode(mode: BrowseMode) {
+    updateBrowseParams((params) => {
+      if (mode === "search") {
+        params.delete("mode");
+      } else {
+        params.set("mode", mode);
+      }
+      params.delete("packId");
+      params.delete("packLabel");
+      params.delete("artist");
+    });
+  }
+
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearch = useDeferredValue(searchQuery);
   const [selectedSong, setSelectedSong] = useState<BrowseSongRecord | null>(null);
@@ -154,8 +205,6 @@ export function BrowseScreen() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [browseMode, setBrowseMode] = useState<BrowseMode>("search");
-  const [folderView, setFolderView] = useState<FolderView>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [filterInputs, setFilterInputs] = useState<FilterInputs>(defaultFilterInputs);
@@ -207,28 +256,24 @@ export function BrowseScreen() {
     setPreviewLoading(false);
   }
 
-  useEffect(() => {
-    function handlePopState(event: PopStateEvent) {
-      const state = (event.state ?? null) as FolderHistoryState | null;
-      setFolderView(state?.browseFolderView ?? null);
-    }
-
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, []);
 
   useEffect(() => {
     if (!justAdded) return;
     const timeout = window.setTimeout(() => {
       setJustAdded(null);
-      setSelectedSong(null);
-      setSelectedDifficulty(null);
+      if (songParam) {
+        router.back();
+      }
     }, 1000);
     return () => window.clearTimeout(timeout);
-  }, [justAdded]);
+  }, [justAdded, songParam, router]);
+
+  useEffect(() => {
+    if (!songParam) {
+      setSelectedSong(null);
+      setSelectedDifficulty(null);
+    }
+  }, [songParam]);
 
   useEffect(() => {
     return () => {
@@ -666,30 +711,32 @@ export function BrowseScreen() {
   function openSong(song: BrowseSongRecord) {
     setSelectedSong(song);
     setSelectedDifficulty(song.difficulties[0] ?? null);
+    updateBrowseParams((params) => {
+      params.set("song", song.id);
+    });
+  }
+
+  function closeSong() {
+    stopPreview();
+    router.back();
   }
 
   function openFolder(nextFolderView: Exclude<FolderView, null>) {
-    window.history.pushState(
-      { browseFolderView: nextFolderView } satisfies FolderHistoryState,
-      "",
-      window.location.href,
-    );
-    setFolderView(nextFolderView);
+    updateBrowseParams((params) => {
+      if (nextFolderView.type === "pack") {
+        params.set("packId", String(nextFolderView.packId));
+        params.set("packLabel", nextFolderView.value);
+        params.delete("artist");
+      } else {
+        params.set("artist", nextFolderView.value);
+        params.delete("packId");
+        params.delete("packLabel");
+      }
+    });
   }
 
   function closeFolder() {
-    if (!folderView) {
-      return;
-    }
-
-    const state = (window.history.state ?? null) as FolderHistoryState | null;
-
-    if (state?.browseFolderView) {
-      window.history.back();
-      return;
-    }
-
-    setFolderView(null);
+    router.back();
   }
 
   async function addSelectedSong() {
@@ -1202,11 +1249,7 @@ export function BrowseScreen() {
           <button
             aria-label="Close song details"
             className="sheetBackdrop"
-            onClick={() => {
-              stopPreview();
-              setSelectedSong(null);
-              setSelectedDifficulty(null);
-            }}
+            onClick={closeSong}
             type="button"
           />
           <section className="sheet">

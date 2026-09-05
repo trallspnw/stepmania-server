@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { signOut } from "next-auth/react";
 import styles from "@/components/dance-queue-app.module.css";
 import { BottomNav, Tab } from "@/components/bottom-nav";
@@ -32,9 +33,22 @@ const tabMeta = {
   profile: { title: "Profile", Icon: UserIcon },
 } satisfies Record<Tab, { title: string; Icon: React.ElementType }>;
 
+const tabs = Object.keys(tabMeta) as Tab[];
+
 function AppFrame() {
-  const [activeTab, setActiveTab] = useState<Tab>("queue");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab = (tabs as string[]).includes(tabParam ?? "")
+    ? (tabParam as Tab)
+    : "queue";
   const { title, Icon } = tabMeta[activeTab];
+
+  function setActiveTab(tab: Tab) {
+    const params = new URLSearchParams(searchParams);
+    params.set("tab", tab);
+    router.push(`/dashboard?${params.toString()}`);
+  }
   const { currentUser, setCurrentUser } = useApp();
   const signingOutRef = useRef(false);
 
