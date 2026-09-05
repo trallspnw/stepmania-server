@@ -1,6 +1,6 @@
 "use client";
 
-import { HistoryIcon, QueueIcon, SearchIcon, UserIcon } from "@/components/icons";
+import { HistoryIcon, LibraryIcon, QueueIcon, UserIcon } from "@/components/icons";
 
 export type Tab = "queue" | "browse" | "history" | "profile";
 
@@ -11,7 +11,7 @@ interface BottomNavProps {
 
 const items = [
   { id: "queue" as const, label: "Queue", Icon: QueueIcon },
-  { id: "browse" as const, label: "Browse", Icon: SearchIcon },
+  { id: "browse" as const, label: "Library", Icon: LibraryIcon },
   { id: "history" as const, label: "History", Icon: HistoryIcon },
   { id: "profile" as const, label: "Profile", Icon: UserIcon },
 ];

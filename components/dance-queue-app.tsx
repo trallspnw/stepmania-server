@@ -10,8 +10,8 @@ import { BrowseScreen } from "@/components/browse-screen";
 import { HistoryScreen } from "@/components/history-screen";
 import {
   HistoryIcon,
+  LibraryIcon,
   QueueIcon,
-  SearchIcon,
   UserIcon,
 } from "@/components/icons";
 import { ProfileScreen } from "@/components/profile-screen";
@@ -29,7 +29,7 @@ interface DanceQueueAppProps {
 
 const tabMeta = {
   queue: { title: "Queue", Icon: QueueIcon },
-  browse: { title: "Browse", Icon: SearchIcon },
+  browse: { title: "Library", Icon: LibraryIcon },
   history: { title: "History", Icon: HistoryIcon },
   profile: { title: "Profile", Icon: UserIcon },
 } satisfies Record<Tab, { title: string; Icon: React.ElementType }>;
