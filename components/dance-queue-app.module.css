@@ -349,7 +349,8 @@
 .root :global(.primaryButton),
 .root :global(.textButton),
 .root :global(.folderRow),
-.root :global(.songCard) {
+.root :global(.songCard),
+.root :global(.historyCard) {
   cursor: pointer;
   transition:
     transform 0.18s ease,
@@ -544,7 +545,8 @@
 }
 
 .root :global(.songCard),
-.root :global(.folderRow) {
+.root :global(.folderRow),
+.root :global(.historyCard) {
   width: 100%;
   text-align: left;
 }
@@ -631,7 +633,8 @@
 }
 
 .root :global(.appCanvas button.songCard),
-.root :global(.appCanvas button.folderRow) {
+.root :global(.appCanvas button.folderRow),
+.root :global(.appCanvas button.historyCard) {
   background: var(--bg-card-strong);
 }
 
@@ -1028,6 +1031,7 @@
   .root :global(.ghostButton:hover),
   .root :global(.folderRow:hover),
   .root :global(.songCard:hover),
+  .root :global(.historyCard:hover),
   .root :global(.headerAction:hover),
   .root :global(.navButton:hover),
   .root :global(.primaryButton:hover),

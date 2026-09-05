@@ -12,26 +12,20 @@ import {
 } from "react";
 import {
   ArrowLeftIcon,
-  CheckIcon,
   ChevronRightIcon,
   FilterIcon,
   FolderIcon,
-  PlusIcon,
-  PlayIcon,
   SearchIcon,
-  StopIcon,
   TrophyIcon,
 } from "@/components/icons";
-import { useApp } from "@/lib/app-context";
+import { SongDetailSheet } from "@/components/song-detail-sheet";
 import {
-  BrowseDifficulty,
   BrowsePackRecord,
   BrowsePacksResponse,
   BrowseSongRecord,
   BrowseSongsResponse,
   getDifficultyGradient,
   getDifficultyRange,
-  getDifficultyTone,
   getPackRegionEmojis,
   getPreferredPlatform,
   getReleaseYear,
@@ -136,7 +130,6 @@ function filtersToInputs(filters: Filters): FilterInputs {
 }
 
 export function BrowseScreen() {
-  const { addToQueue } = useApp();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -188,12 +181,6 @@ export function BrowseScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearch = useDeferredValue(searchQuery);
   const [selectedSong, setSelectedSong] = useState<BrowseSongRecord | null>(null);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<BrowseDifficulty | null>(null);
-  const [justAdded, setJustAdded] = useState<string | null>(null);
-  const [selectedSongBannerSrc, setSelectedSongBannerSrc] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewPlaying, setPreviewPlaying] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [filterInputs, setFilterInputs] = useState<FilterInputs>(defaultFilterInputs);
@@ -217,124 +204,12 @@ export function BrowseScreen() {
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const filtersRef = useRef<HTMLElement | null>(null);
-  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
-  const previewStopTimeoutRef = useRef<number | null>(null);
-  const previewSongIdRef = useRef<string | null>(null);
-
-  function stopPreview() {
-    if (previewStopTimeoutRef.current != null) {
-      window.clearTimeout(previewStopTimeoutRef.current);
-      previewStopTimeoutRef.current = null;
-    }
-
-    const audio = previewAudioRef.current;
-
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-
-    setPreviewPlaying(false);
-    setPreviewLoading(false);
-  }
-
-
-  useEffect(() => {
-    if (!justAdded) return;
-    const timeout = window.setTimeout(() => {
-      setJustAdded(null);
-      if (songParam) {
-        router.back();
-      }
-    }, 1000);
-    return () => window.clearTimeout(timeout);
-  }, [justAdded, songParam, router]);
 
   useEffect(() => {
     if (!songParam) {
       setSelectedSong(null);
-      setSelectedDifficulty(null);
     }
   }, [songParam]);
-
-  useEffect(() => {
-    return () => {
-      stopPreview();
-      previewAudioRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    stopPreview();
-    setPreviewError(null);
-  }, [selectedSong]);
-
-  useEffect(() => {
-    if (!selectedSong) {
-      setSelectedSongBannerSrc((current) => {
-        if (current) {
-          URL.revokeObjectURL(current);
-        }
-        return null;
-      });
-      return;
-    }
-
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    const selectedSongId = selectedSong.id;
-
-    async function loadBanner() {
-      try {
-        const response = await fetch(`/api/library/browse/songs/${selectedSongId}/banner`, {
-          credentials: "same-origin",
-        });
-
-        if (!response.ok) {
-          if (!cancelled) {
-            setSelectedSongBannerSrc((current) => {
-              if (current) {
-                URL.revokeObjectURL(current);
-              }
-              return null;
-            });
-          }
-          return;
-        }
-
-        const bannerBlob = await response.blob();
-        objectUrl = URL.createObjectURL(bannerBlob);
-
-        if (!cancelled) {
-          setSelectedSongBannerSrc((current) => {
-            if (current) {
-              URL.revokeObjectURL(current);
-            }
-            return objectUrl;
-          });
-        }
-      } catch {
-        if (!cancelled) {
-          setSelectedSongBannerSrc((current) => {
-            if (current) {
-              URL.revokeObjectURL(current);
-            }
-            return null;
-          });
-        }
-      }
-    }
-
-    void loadBanner();
-
-    return () => {
-      cancelled = true;
-
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [selectedSong]);
 
   useEffect(() => {
     if (!filtersOpen) {
@@ -621,14 +496,12 @@ export function BrowseScreen() {
 
   function openSong(song: BrowseSongRecord) {
     setSelectedSong(song);
-    setSelectedDifficulty(song.difficulties[0] ?? null);
     updateBrowseParams((params) => {
       params.set("song", song.id);
     });
   }
 
   function closeSong() {
-    stopPreview();
     router.back();
   }
 
@@ -641,117 +514,6 @@ export function BrowseScreen() {
 
   function closeFolder() {
     router.back();
-  }
-
-  async function addSelectedSong() {
-    if (!selectedSong || !selectedDifficulty) return;
-
-    const didAdd = await addToQueue(Number(selectedSong.id), selectedDifficulty.chartId);
-
-    if (didAdd) {
-      setJustAdded(selectedSong.id);
-    }
-  }
-
-  async function togglePreview() {
-    if (!selectedSong) {
-      return;
-    }
-
-    if (previewPlaying) {
-      stopPreview();
-      return;
-    }
-
-    setPreviewError(null);
-    setPreviewLoading(true);
-
-    let audio = previewAudioRef.current;
-    const previewUrl = `/api/library/browse/songs/${selectedSong.id}/preview`;
-    const isNewSong = previewSongIdRef.current !== selectedSong.id;
-
-    if (!audio) {
-      audio = new Audio();
-      audio.preload = "auto";
-      audio.loop = false;
-      audio.addEventListener("ended", () => {
-        setPreviewPlaying(false);
-        setPreviewLoading(false);
-      });
-      audio.addEventListener("error", () => {
-        setPreviewPlaying(false);
-        setPreviewLoading(false);
-        setPreviewError("Preview unavailable");
-      });
-      previewAudioRef.current = audio;
-    }
-
-    if (isNewSong || !audio.src.endsWith(previewUrl)) {
-      audio.pause();
-      audio.src = previewUrl;
-      audio.load();
-      previewSongIdRef.current = selectedSong.id;
-    }
-
-    const previewStart = selectedSong.sampleStart ?? 0;
-    const previewLength = selectedSong.sampleLength ?? 15;
-
-    try {
-      if (audio.readyState < 1) {
-        await new Promise<void>((resolve, reject) => {
-          const handleLoadedMetadata = () => {
-            audio?.removeEventListener("loadedmetadata", handleLoadedMetadata);
-            audio?.removeEventListener("error", handleError);
-            resolve();
-          };
-          const handleError = () => {
-            audio?.removeEventListener("loadedmetadata", handleLoadedMetadata);
-            audio?.removeEventListener("error", handleError);
-            reject(new Error("Preview unavailable"));
-          };
-
-          audio?.addEventListener("loadedmetadata", handleLoadedMetadata, { once: true });
-          audio?.addEventListener("error", handleError, { once: true });
-        });
-      }
-
-      const targetTime = Math.max(0, previewStart);
-
-      if (Math.abs(audio.currentTime - targetTime) > 0.05) {
-        await new Promise<void>((resolve, reject) => {
-          const handleSeeked = () => {
-            audio?.removeEventListener("seeked", handleSeeked);
-            audio?.removeEventListener("error", handleError);
-            resolve();
-          };
-          const handleError = () => {
-            audio?.removeEventListener("seeked", handleSeeked);
-            audio?.removeEventListener("error", handleError);
-            reject(new Error("Preview unavailable"));
-          };
-
-          audio?.addEventListener("seeked", handleSeeked, { once: true });
-          audio?.addEventListener("error", handleError, { once: true });
-          audio.currentTime = targetTime;
-        });
-      }
-
-      await audio.play();
-      setPreviewPlaying(true);
-      setPreviewLoading(false);
-
-      if (previewStopTimeoutRef.current != null) {
-        window.clearTimeout(previewStopTimeoutRef.current);
-      }
-
-      previewStopTimeoutRef.current = window.setTimeout(() => {
-        stopPreview();
-      }, Math.max(1, previewLength) * 1000);
-    } catch {
-      setPreviewPlaying(false);
-      setPreviewLoading(false);
-      setPreviewError("Preview unavailable");
-    }
   }
 
   function commitFilterField(field: keyof Filters) {
@@ -1110,100 +872,7 @@ export function BrowseScreen() {
         </div>
       ) : null}
 
-      {selectedSong ? (
-        <>
-          <button
-            aria-label="Close song details"
-            className="sheetBackdrop"
-            onClick={closeSong}
-            type="button"
-          />
-          <section className="sheet">
-            <div className="sheetHandle" />
-            {selectedSongBannerSrc ? (
-              <div className="sheetBannerFrame">
-                <img
-                  alt={`${selectedSong.title} banner`}
-                  className="sheetBannerImage"
-                  src={selectedSongBannerSrc}
-                />
-              </div>
-            ) : null}
-            <header className="sheetHeader">
-              <div className="sheetHeaderCopy">
-                <h2>{selectedSong.title}</h2>
-                <p>{selectedSong.artist}</p>
-              </div>
-              <button
-                className={`sheetPreviewButton${previewPlaying ? " isPlaying" : ""}`}
-                disabled={previewLoading}
-                onClick={() => void togglePreview()}
-                aria-label={previewLoading ? "Loading preview" : previewPlaying ? "Stop preview" : "Play preview"}
-                title={previewLoading ? "Loading preview" : previewPlaying ? "Stop preview" : "Play preview"}
-                type="button"
-              >
-                {previewPlaying || previewLoading ? (
-                  <StopIcon className="sheetPreviewIcon" />
-                ) : (
-                  <PlayIcon className="sheetPreviewIcon" />
-                )}
-              </button>
-            </header>
-
-            <div className="sheetMetaGrid">
-              <div>
-                <span className="inputLabel">Pack</span>
-                <strong>{selectedSong.pack}</strong>
-              </div>
-              <div>
-                <span className="inputLabel">BPM</span>
-                <strong>{selectedSong.bpmLabel || "-"}</strong>
-              </div>
-            </div>
-
-            <div className="stack tight">
-              <span className="inputLabel">Select Difficulty</span>
-              <div className="difficultyGrid">
-                {selectedSong.difficulties.map((difficulty, index) => (
-                  <button
-                    className={`pill difficultyButton ${getDifficultyTone(difficulty.slot)}${
-                      selectedDifficulty?.chartId === difficulty.chartId
-                        ? " isSelected"
-                        : ""
-                    }`}
-                    key={`${selectedSong.id}-${difficulty.chartId}-${index}`}
-                    onClick={() => setSelectedDifficulty(difficulty)}
-                    type="button"
-                  >
-                    {difficulty.slot} {difficulty.level}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {previewError ? <p className="muted">{previewError}</p> : null}
-
-            <button
-              className="primaryButton addButton"
-              disabled={justAdded === selectedSong.id || !selectedDifficulty}
-              onClick={addSelectedSong}
-              type="button"
-            >
-              {justAdded === selectedSong.id ? (
-                <>
-                  <CheckIcon className="tinyIcon" />
-                  <span>Added to Queue</span>
-                </>
-              ) : (
-                <>
-                  <PlusIcon className="tinyIcon" />
-                  <span>Add to Queue</span>
-                </>
-              )}
-            </button>
-          </section>
-        </>
-      ) : null}
+      <SongDetailSheet onClose={closeSong} song={selectedSong} />
     </div>
   );
 }

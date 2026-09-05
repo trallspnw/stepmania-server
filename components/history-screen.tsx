@@ -1,11 +1,29 @@
 "use client";
 
+import { useState } from "react";
 import { HistoryIcon } from "@/components/icons";
+import { SongDetailSheet } from "@/components/song-detail-sheet";
 import { useApp } from "@/lib/app-context";
+import type { BrowseSongRecord } from "@/lib/library-browser";
 import { formatRelativeTime, getDifficultyTone, getGradeTone } from "@/lib/mock-data";
 
 export function HistoryScreen() {
   const { historyEntries, historyError, historyLoading } = useApp();
+  const [selectedSong, setSelectedSong] = useState<BrowseSongRecord | null>(null);
+
+  async function openSongDetail(songId: number) {
+    const response = await fetch(`/api/library/browse/songs/${songId}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const data = (await response.json()) as { song: BrowseSongRecord };
+    setSelectedSong(data.song);
+  }
 
   if (historyLoading && historyEntries.length === 0) {
     return (
@@ -46,7 +64,12 @@ export function HistoryScreen() {
   return (
     <div className="stack tight">
       {historyEntries.map((entry) => (
-        <article className="card historyCard" key={entry.id}>
+        <button
+          className="card historyCard"
+          key={entry.id}
+          onClick={() => void openSongDetail(entry.song.id)}
+          type="button"
+        >
           <div className="avatar">{entry.user.displayName.charAt(0)}</div>
           <div className="historyContent">
             <h3>{entry.song.title}</h3>
@@ -63,8 +86,10 @@ export function HistoryScreen() {
           <span className={`pill gradePill ${getGradeTone(entry.grade ?? "C")}`}>
             {entry.grade ?? "-"}
           </span>
-        </article>
+        </button>
       ))}
+
+      <SongDetailSheet onClose={() => setSelectedSong(null)} song={selectedSong} />
     </div>
   );
 }

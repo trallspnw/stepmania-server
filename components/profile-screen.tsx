@@ -16,7 +16,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToastMessage, ToastViewport } from "@/components/ui/toast";
+import { SongDetailSheet } from "@/components/song-detail-sheet";
 import type { HistoryRecord } from "@/lib/history-types";
+import type { BrowseSongRecord } from "@/lib/library-browser";
 import { useApp } from "@/lib/app-context";
 import { formatRelativeTime, getDifficultyTone, getGradeTone } from "@/lib/mock-data";
 
@@ -50,8 +52,23 @@ export function ProfileScreen() {
   const [myHistoryTotalPages, setMyHistoryTotalPages] = useState(1);
   const [myHistoryPage, setMyHistoryPage] = useState(1);
   const [activeProfileIdForHistory, setActiveProfileIdForHistory] = useState(activeProfile.id);
+  const [selectedSong, setSelectedSong] = useState<BrowseSongRecord | null>(null);
 
   const myQueueEntries = queueEntries.filter((entry) => entry.user.id === activeProfile.id);
+
+  async function openSongDetail(songId: number) {
+    const response = await fetch(`/api/library/browse/songs/${songId}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const data = (await response.json()) as { song: BrowseSongRecord };
+    setSelectedSong(data.song);
+  }
 
   // Reset to page 1 when the active profile changes, computed during render
   // (not an effect) so the subsequent fetch effect only ever runs once per switch.
@@ -387,8 +404,13 @@ export function ProfileScreen() {
             <div className="stack tight">
               {myHistoryEntries.map((entry) => {
                 return (
-                  <div className="splitRow" key={entry.id}>
-                    <div>
+                  <button
+                    className="card historyCard"
+                    key={entry.id}
+                    onClick={() => void openSongDetail(entry.song.id)}
+                    type="button"
+                  >
+                    <div className="historyContent">
                       <h3>{entry.song.title}</h3>
                       <div className="metaRow wrap">
                         <span className={`pill ${getDifficultyTone(entry.chart.difficultySlot)}`}>
@@ -402,7 +424,7 @@ export function ProfileScreen() {
                     <span className={`pill gradePill ${getGradeTone(entry.grade ?? "C")}`}>
                       {entry.grade ?? "-"}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -591,6 +613,8 @@ export function ProfileScreen() {
       </Dialog>
 
       <ToastViewport toasts={toasts} />
+
+      <SongDetailSheet onClose={() => setSelectedSong(null)} song={selectedSong} />
     </div>
   );
 }
