@@ -36,11 +36,6 @@ export interface BrowsePackRecord {
   earliestRelease: string | null;
 }
 
-export interface BrowseArtistRecord {
-  name: string;
-  songCount: number;
-}
-
 export interface BrowseSongsResponse {
   page: number;
   pageSize: number;
@@ -63,15 +58,6 @@ export interface BrowsePacksResponse {
   totalPages: number;
   gameMode: string;
   packs: BrowsePackRecord[];
-}
-
-export interface BrowseArtistsResponse {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-  gameMode: string;
-  artists: BrowseArtistRecord[];
 }
 
 export function normalizeDifficultySlot(slot: string): BrowseDifficultySlot {

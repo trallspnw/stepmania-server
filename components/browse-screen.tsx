@@ -20,12 +20,9 @@ import {
   PlayIcon,
   SearchIcon,
   StopIcon,
-  UserIcon,
 } from "@/components/icons";
 import { useApp } from "@/lib/app-context";
 import {
-  BrowseArtistRecord,
-  BrowseArtistsResponse,
   BrowseDifficulty,
   BrowsePackRecord,
   BrowsePacksResponse,
@@ -41,11 +38,8 @@ import {
 } from "@/lib/library-browser";
 import { getLibraryGameModeLabel } from "@/lib/library-mode";
 
-type BrowseMode = "search" | "packs" | "artists";
-type FolderView =
-  | { type: "pack"; packId: number; value: string }
-  | { type: "artist"; value: string }
-  | null;
+type BrowseMode = "search" | "packs";
+type FolderView = { packId: number; value: string } | null;
 
 interface Filters {
   minDifficulty: number | null;
@@ -147,23 +141,17 @@ export function BrowseScreen() {
   const searchParams = useSearchParams();
 
   const modeParam = searchParams.get("mode");
-  const browseMode: BrowseMode =
-    modeParam === "packs" || modeParam === "artists" ? modeParam : "search";
+  const browseMode: BrowseMode = modeParam === "packs" ? modeParam : "search";
 
   const packIdParam = searchParams.get("packId");
   const packLabelParam = searchParams.get("packLabel");
-  const artistParam = searchParams.get("artist");
   const folderView: FolderView = useMemo(() => {
     if (packIdParam) {
-      return { type: "pack", packId: Number(packIdParam), value: packLabelParam ?? "" };
-    }
-
-    if (artistParam) {
-      return { type: "artist", value: artistParam };
+      return { packId: Number(packIdParam), value: packLabelParam ?? "" };
     }
 
     return null;
-  }, [packIdParam, packLabelParam, artistParam]);
+  }, [packIdParam, packLabelParam]);
 
   const songParam = searchParams.get("song");
 
@@ -192,7 +180,6 @@ export function BrowseScreen() {
       }
       params.delete("packId");
       params.delete("packLabel");
-      params.delete("artist");
     });
   }
 
@@ -225,13 +212,6 @@ export function BrowseScreen() {
   const [packsTotalPages, setPacksTotalPages] = useState(1);
   const [packsLoading, setPacksLoading] = useState(false);
   const [packsError, setPacksError] = useState<string | null>(null);
-
-  const [artists, setArtists] = useState<BrowseArtistRecord[]>([]);
-  const [artistsPage, setArtistsPage] = useState(1);
-  const [artistsTotal, setArtistsTotal] = useState(0);
-  const [artistsTotalPages, setArtistsTotalPages] = useState(1);
-  const [artistsLoading, setArtistsLoading] = useState(false);
-  const [artistsError, setArtistsError] = useState<string | null>(null);
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const filtersRef = useRef<HTMLElement | null>(null);
@@ -460,12 +440,8 @@ export function BrowseScreen() {
       searchParams.set("query", deferredSearch.trim());
     }
 
-    if (folderView?.type === "pack") {
+    if (folderView) {
       searchParams.set("packId", String(folderView.packId));
-    }
-
-    if (folderView?.type === "artist") {
-      searchParams.set("artist", folderView.value);
     }
 
     let cancelled = false;
@@ -589,69 +565,6 @@ export function BrowseScreen() {
   }, [browseMode, folderView, packsPage]);
 
   useEffect(() => {
-    if (folderView || browseMode !== "artists") {
-      return;
-    }
-
-    setArtists([]);
-    setArtistsPage(1);
-    setArtistsTotal(0);
-    setArtistsTotalPages(1);
-    setArtistsError(null);
-  }, [browseMode, folderView]);
-
-  useEffect(() => {
-    if (folderView || browseMode !== "artists") {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function loadArtists() {
-      try {
-        setArtistsLoading(true);
-
-        const response = await fetch(`/api/library/browse/artists?page=${artistsPage}`, {
-          credentials: "same-origin",
-        });
-
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
-        }
-
-        const data = (await response.json()) as BrowseArtistsResponse;
-
-        if (cancelled) {
-          return;
-        }
-
-        setArtistsTotal(data.total);
-        setArtistsTotalPages(data.totalPages);
-        setActiveGameMode(data.gameMode);
-        setArtists((current) =>
-          artistsPage === 1
-            ? data.artists
-            : appendUniqueBy(current, data.artists, (artist) => artist.name),
-        );
-      } catch (error) {
-        if (!cancelled) {
-          setArtistsError((error as Error).message);
-        }
-      } finally {
-        if (!cancelled) {
-          setArtistsLoading(false);
-        }
-      }
-    }
-
-    void loadArtists();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [artistsPage, browseMode, folderView]);
-
-  useEffect(() => {
     const node = loadMoreRef.current;
 
     if (!node) {
@@ -673,15 +586,8 @@ export function BrowseScreen() {
           return;
         }
 
-        if (browseMode === "packs") {
-          if (!packsLoading && packsPage < packsTotalPages) {
-            setPacksPage((current) => current + 1);
-          }
-          return;
-        }
-
-        if (browseMode === "artists" && !artistsLoading && artistsPage < artistsTotalPages) {
-          setArtistsPage((current) => current + 1);
+        if (browseMode === "packs" && !packsLoading && packsPage < packsTotalPages) {
+          setPacksPage((current) => current + 1);
         }
       },
       {
@@ -695,9 +601,6 @@ export function BrowseScreen() {
       observer.disconnect();
     };
   }, [
-    artistsLoading,
-    artistsPage,
-    artistsTotalPages,
     browseMode,
     packsLoading,
     packsPage,
@@ -723,15 +626,8 @@ export function BrowseScreen() {
 
   function openFolder(nextFolderView: Exclude<FolderView, null>) {
     updateBrowseParams((params) => {
-      if (nextFolderView.type === "pack") {
-        params.set("packId", String(nextFolderView.packId));
-        params.set("packLabel", nextFolderView.value);
-        params.delete("artist");
-      } else {
-        params.set("artist", nextFolderView.value);
-        params.delete("packId");
-        params.delete("packLabel");
-      }
+      params.set("packId", String(nextFolderView.packId));
+      params.set("packLabel", nextFolderView.value);
     });
   }
 
@@ -903,29 +799,10 @@ export function BrowseScreen() {
     }
   }
 
-  const currentListTotal = songsModeActive
-    ? songsTotal
-    : browseMode === "packs"
-      ? packsTotal
-      : artistsTotal;
-
-  const currentHasMore = songsModeActive
-    ? songsPage < songsTotalPages
-    : browseMode === "packs"
-      ? packsPage < packsTotalPages
-      : artistsPage < artistsTotalPages;
-
-  const currentLoading = songsModeActive
-    ? songsLoading
-    : browseMode === "packs"
-      ? packsLoading
-      : artistsLoading;
-
-  const currentError = songsModeActive
-    ? songsError
-    : browseMode === "packs"
-      ? packsError
-      : artistsError;
+  const currentListTotal = songsModeActive ? songsTotal : packsTotal;
+  const currentHasMore = songsModeActive ? songsPage < songsTotalPages : packsPage < packsTotalPages;
+  const currentLoading = songsModeActive ? songsLoading : packsLoading;
+  const currentError = songsModeActive ? songsError : packsError;
 
   return (
     <div className="stack browseStack">
@@ -971,14 +848,6 @@ export function BrowseScreen() {
               >
                 <FolderIcon className="tinyIcon" />
                 <span>Packs</span>
-              </button>
-              <button
-                className={`segmentButton${browseMode === "artists" ? " isSelected" : ""}`}
-                onClick={() => setBrowseMode("artists")}
-                type="button"
-              >
-                <UserIcon className="tinyIcon" />
-                <span>Artists</span>
               </button>
             </div>
             <button
@@ -1168,69 +1037,42 @@ export function BrowseScreen() {
       ) : (
         <div className="stack tight">
           {currentError ? <div className="card emptyInline">{currentError}</div> : null}
-          {!currentError && browseMode === "packs" && packs.length === 0 && !packsLoading ? (
+          {!currentError && packs.length === 0 && !packsLoading ? (
             <div className="card emptyInline">No packs found</div>
           ) : null}
-          {!currentError && browseMode === "artists" && artists.length === 0 && !artistsLoading ? (
-            <div className="card emptyInline">No artists found</div>
-          ) : null}
-          {browseMode === "packs"
-            ? packs.map((pack) => (
-                <button
-                  className="folderRow"
-                  key={pack.id}
-                  onClick={() =>
-                    openFolder({
-                      type: "pack",
-                      packId: pack.id,
-                      value: pack.title,
-                    })
-                  }
-                  type="button"
-                >
-                  <div className="folderIconWrap">
-                    <FolderIcon className="tinyIcon" />
-                  </div>
-                  <div className="folderCopy">
-                    <h3>{pack.title}</h3>
-                    <div className="metaRow wrap muted">
-                      <span>{pack.songCount} songs</span>
-                      {getPreferredPlatform(pack.platforms) ? (
-                        <span>{getPreferredPlatform(pack.platforms)}</span>
-                      ) : null}
-                      {getReleaseYear(pack.earliestRelease) ? (
-                        <span>{getReleaseYear(pack.earliestRelease)}</span>
-                      ) : null}
-                      {getPackRegionEmojis(pack.regions) ? (
-                        <span className="regionEmojiRow">{getPackRegionEmojis(pack.regions)}</span>
-                      ) : null}
-                    </div>
-                  </div>
-                  <ChevronRightIcon className="tinyIcon mutedIcon" />
-                </button>
-              ))
-            : artists.map((artist) => (
-                <button
-                  className="folderRow"
-                  key={artist.name}
-                  onClick={() =>
-                    openFolder({
-                      type: "artist",
-                      value: artist.name,
-                    })
-                  }
-                  type="button"
-                >
-                  <div className="folderIconWrap">
-                    <UserIcon className="tinyIcon" />
-                  </div>
-                  <div className="folderCopy">
-                    <h3>{artist.name}</h3>
-                    <p>{artist.songCount} songs</p>
-                  </div>
-                  <ChevronRightIcon className="tinyIcon mutedIcon" />
-                </button>
-              ))}
+          {packs.map((pack) => (
+            <button
+              className="folderRow"
+              key={pack.id}
+              onClick={() =>
+                openFolder({
+                  packId: pack.id,
+                  value: pack.title,
+                })
+              }
+              type="button"
+            >
+              <div className="folderIconWrap">
+                <FolderIcon className="tinyIcon" />
+              </div>
+              <div className="folderCopy">
+                <h3>{pack.title}</h3>
+                <div className="metaRow wrap muted">
+                  <span>{pack.songCount} songs</span>
+                  {getPreferredPlatform(pack.platforms) ? (
+                    <span>{getPreferredPlatform(pack.platforms)}</span>
+                  ) : null}
+                  {getReleaseYear(pack.earliestRelease) ? (
+                    <span>{getReleaseYear(pack.earliestRelease)}</span>
+                  ) : null}
+                  {getPackRegionEmojis(pack.regions) ? (
+                    <span className="regionEmojiRow">{getPackRegionEmojis(pack.regions)}</span>
+                  ) : null}
+                </div>
+              </div>
+              <ChevronRightIcon className="tinyIcon mutedIcon" />
+            </button>
+          ))}
         </div>
       )}
 

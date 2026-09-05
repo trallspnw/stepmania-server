@@ -57,7 +57,6 @@ export async function GET(request: Request) {
   const page = getPage(request);
   const gameMode = normalizeLibraryGameMode(await getSetting(SETTING_KEYS.LIBRARY_GAME_MODE));
   const query = url.searchParams.get("query")?.trim() ?? "";
-  const artist = url.searchParams.get("artist")?.trim() ?? "";
   const packId = Number(url.searchParams.get("packId") ?? "");
   const minDifficulty = getOptionalNumberParam(url.searchParams, "minDifficulty");
   const maxDifficulty = getOptionalNumberParam(url.searchParams, "maxDifficulty");
@@ -82,13 +81,6 @@ export async function GET(request: Request) {
             { pack: { folderName: { contains: query, mode: "insensitive" as const } } },
             { pack: { titles: { contains: query, mode: "insensitive" as const } } },
           ],
-        }
-      : {}),
-    ...(artist
-      ? {
-          artist: {
-            equals: artist,
-          },
         }
       : {}),
     ...(Number.isInteger(packId) && packId > 0
