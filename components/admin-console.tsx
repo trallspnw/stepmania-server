@@ -29,10 +29,11 @@ import type { QueueEntryRecord, QueueResponse } from "@/lib/queue-types";
 
 type AdminUser = {
   id: number;
-  loginName: string;
+  loginName: string | null;
   displayName: string;
   isAdmin: boolean;
   isActive: boolean;
+  isChild: boolean;
   createdAt: string;
 };
 
@@ -227,6 +228,9 @@ export function AdminConsole({
     id: string;
     createdAt: string;
   } | null>(null);
+  const [childDialogOpen, setChildDialogOpen] = useState(false);
+  const [childDisplayName, setChildDisplayName] = useState("");
+  const [childUserError, setChildUserError] = useState<string | null>(null);
   const [passwordUser, setPasswordUser] = useState<AdminUser | null>(null);
   const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
   const [editUser, setEditUser] = useState<AdminUser | null>(null);
@@ -660,7 +664,7 @@ export function AdminConsole({
     const nextLoginName = editLoginName.trim();
     const nextDisplayName = editDisplayName.trim();
 
-    if (!nextLoginName || !nextDisplayName) {
+    if ((!editUser.isChild && !nextLoginName) || !nextDisplayName) {
       setEditUserError("Login name and display name are required.");
       return;
     }
@@ -673,7 +677,10 @@ export function AdminConsole({
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ loginName: nextLoginName, displayName: nextDisplayName }),
+      body: JSON.stringify({
+        ...(editUser.isChild ? {} : { loginName: nextLoginName }),
+        displayName: nextDisplayName,
+      }),
     });
 
     setLoadingId(null);
@@ -730,6 +737,50 @@ export function AdminConsole({
 
     pushToast(`Deleted ${userToDelete.displayName}`);
     setDeleteUser(null);
+  }
+
+  async function handleCreateChildUser() {
+    const nextDisplayName = childDisplayName.trim();
+
+    if (!nextDisplayName) {
+      setChildUserError("Display name is required.");
+      return;
+    }
+
+    setChildUserError(null);
+    setLoadingId("create-child");
+
+    const response = await fetch("/api/admin/users/children", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ displayName: nextDisplayName }),
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+
+      switch (data.error) {
+        case "display_name_taken":
+          setChildUserError("That display name is already taken.");
+          break;
+        default:
+          setChildUserError("Failed to create child user.");
+          break;
+      }
+
+      return;
+    }
+
+    const createdUser = (await response.json()) as AdminUser;
+
+    setUsers((current) => [...current, createdUser]);
+    pushToast(`Created ${createdUser.displayName}`);
+    setChildDialogOpen(false);
+    setChildDisplayName("");
   }
 
   async function handleGenerateInvite() {
@@ -1087,9 +1138,22 @@ export function AdminConsole({
                   <h2 className="text-xl font-semibold text-stone-950">Users</h2>
                   <p className="text-sm text-stone-600">Manage current accounts and access.</p>
                 </div>
-                <Button onClick={() => setGenerateDialogOpen(true)} type="button">
-                  Generate Invite
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => {
+                      setChildDisplayName("");
+                      setChildUserError(null);
+                      setChildDialogOpen(true);
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    New Child User
+                  </Button>
+                  <Button onClick={() => setGenerateDialogOpen(true)} type="button">
+                    Generate Invite
+                  </Button>
+                </div>
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-stone-200">
@@ -1111,15 +1175,19 @@ export function AdminConsole({
                       return (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium text-stone-900">
-                            {user.loginName}
+                            {user.loginName ?? "—"}
                           </TableCell>
                           <TableCell className="font-medium text-stone-900">
                             {user.displayName}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={roleVariant(user.isAdmin)}>
-                              {user.isAdmin ? "Admin" : "Player"}
-                            </Badge>
+                            {user.isChild ? (
+                              <Badge variant="gold">Child</Badge>
+                            ) : (
+                              <Badge variant={roleVariant(user.isAdmin)}>
+                                {user.isAdmin ? "Admin" : "Player"}
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Badge variant={statusVariant(user.isActive)}>
@@ -1141,24 +1209,26 @@ export function AdminConsole({
                                 <UserX className="mr-2 h-4 w-4" />
                                 {user.isActive ? "Deactivate" : "Reactivate"}
                               </Button>
-                              <Button
-                                disabled={isSelf || loadingId === `role-${user.id}`}
-                                onClick={() => toggleUserValue(user.id, "isAdmin", "role")}
-                                size="sm"
-                                type="button"
-                                variant="outline"
-                              >
-                                {user.isAdmin ? (
-                                  <ShieldOff className="mr-2 h-4 w-4" />
-                                ) : (
-                                  <Shield className="mr-2 h-4 w-4" />
-                                )}
-                                {user.isAdmin ? "Demote to Player" : "Promote to Admin"}
-                              </Button>
+                              {user.isChild ? null : (
+                                <Button
+                                  disabled={isSelf || loadingId === `role-${user.id}`}
+                                  onClick={() => toggleUserValue(user.id, "isAdmin", "role")}
+                                  size="sm"
+                                  type="button"
+                                  variant="outline"
+                                >
+                                  {user.isAdmin ? (
+                                    <ShieldOff className="mr-2 h-4 w-4" />
+                                  ) : (
+                                    <Shield className="mr-2 h-4 w-4" />
+                                  )}
+                                  {user.isAdmin ? "Demote to Player" : "Promote to Admin"}
+                                </Button>
+                              )}
                               <Button
                                 onClick={() => {
                                   setEditUser(user);
-                                  setEditLoginName(user.loginName);
+                                  setEditLoginName(user.loginName ?? "");
                                   setEditDisplayName(user.displayName);
                                   setEditUserError(null);
                                 }}
@@ -1169,21 +1239,23 @@ export function AdminConsole({
                                 <Pencil className="mr-2 h-4 w-4" />
                                 Edit
                               </Button>
-                              <Button
-                                disabled={isSelf}
-                                onClick={() => {
-                                  setPasswordUser(user);
-                                  setPassword("");
-                                  setConfirmPassword("");
-                                  setPasswordError(null);
-                                }}
-                                size="sm"
-                                type="button"
-                                variant="outline"
-                              >
-                                <KeyRound className="mr-2 h-4 w-4" />
-                                Reset Password
-                              </Button>
+                              {user.isChild ? null : (
+                                <Button
+                                  disabled={isSelf}
+                                  onClick={() => {
+                                    setPasswordUser(user);
+                                    setPassword("");
+                                    setConfirmPassword("");
+                                    setPasswordError(null);
+                                  }}
+                                  size="sm"
+                                  type="button"
+                                  variant="outline"
+                                >
+                                  <KeyRound className="mr-2 h-4 w-4" />
+                                  Reset Password
+                                </Button>
+                              )}
                               <Button
                                 className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
                                 disabled={isSelf || loadingId === `delete-${user.id}`}
@@ -2293,6 +2365,47 @@ export function AdminConsole({
         </DialogContent>
       </Dialog>
 
+      <Dialog onOpenChange={setChildDialogOpen} open={childDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Child User</DialogTitle>
+            <DialogDescription>
+              Create a profile with no login. Play history and queue entries are tracked normally.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="child-display-name">Display Name</Label>
+              <Input
+                id="child-display-name"
+                onChange={(event) => setChildDisplayName(event.target.value)}
+                value={childDisplayName}
+              />
+            </div>
+
+            {childUserError ? <p className="text-sm text-red-600">{childUserError}</p> : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => setChildDialogOpen(false)}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={loadingId === "create-child"}
+              onClick={handleCreateChildUser}
+              type="button"
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog onOpenChange={setClearQueueDialogOpen} open={clearQueueDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -2371,14 +2484,16 @@ export function AdminConsole({
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-login-name">Login Name</Label>
-              <Input
-                id="edit-login-name"
-                onChange={(event) => setEditLoginName(event.target.value)}
-                value={editLoginName}
-              />
-            </div>
+            {editUser?.isChild ? null : (
+              <div className="space-y-2">
+                <Label htmlFor="edit-login-name">Login Name</Label>
+                <Input
+                  id="edit-login-name"
+                  onChange={(event) => setEditLoginName(event.target.value)}
+                  value={editLoginName}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="edit-display-name">Display Name</Label>

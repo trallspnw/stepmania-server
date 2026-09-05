@@ -17,8 +17,19 @@ export async function PUT(
   const { id } = await params;
   const targetUserId = Number(id);
 
+  const existingUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+  });
+
+  if (!existingUser) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const body = await request.json().catch(() => null);
-  const loginName = body?.loginName === undefined ? undefined : String(body.loginName).trim();
+  const loginName =
+    body?.loginName === undefined || existingUser.isChild
+      ? undefined
+      : String(body.loginName).trim();
   const displayName =
     body?.displayName === undefined ? undefined : String(body.displayName).trim();
 
@@ -49,6 +60,7 @@ export async function PUT(
       displayName: updatedUser.displayName,
       isAdmin: updatedUser.isAdmin,
       isActive: updatedUser.isActive,
+      isChild: updatedUser.isChild,
       createdAt: updatedUser.createdAt.toISOString(),
     });
   } catch (error) {

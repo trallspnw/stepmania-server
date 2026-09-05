@@ -27,6 +27,10 @@ export async function PUT(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  if (user.isChild) {
+    return NextResponse.json({ error: "Cannot change role for a child profile" }, { status: 400 });
+  }
+
   const updatedUser = await prisma.user.update({
     where: { id: targetUserId },
     data: { isAdmin: !user.isAdmin },

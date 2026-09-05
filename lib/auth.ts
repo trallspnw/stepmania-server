@@ -43,6 +43,10 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        if (!user.passwordHash || user.isChild) {
+          return null;
+        }
+
         const passwordMatches = await bcrypt.compare(password, user.passwordHash);
 
         if (!passwordMatches) {

@@ -20,6 +20,18 @@ export async function PUT(
     return NextResponse.json({ error: "Cannot reset your own password here" }, { status: 400 });
   }
 
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+  });
+
+  if (!targetUser) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (targetUser.isChild) {
+    return NextResponse.json({ error: "Cannot reset password for a child profile" }, { status: 400 });
+  }
+
   const body = await request.json().catch(() => ({}));
   const password = String(body?.password ?? "");
 

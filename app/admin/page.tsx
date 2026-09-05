@@ -59,6 +59,7 @@ export default async function AdminPage() {
           displayName: user.displayName,
           isAdmin: user.isAdmin,
           isActive: user.isActive,
+          isChild: user.isChild,
           createdAt: user.createdAt.toISOString(),
         }))}
       />
