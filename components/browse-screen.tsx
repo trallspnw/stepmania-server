@@ -152,17 +152,18 @@ export function BrowseScreen() {
 
   function updateBrowseParams(
     mutate: (params: URLSearchParams) => void,
-    options?: { replace?: boolean },
+    options?: { replace?: boolean; scroll?: boolean },
   ) {
     const params = new URLSearchParams(searchParams);
     mutate(params);
     const query = params.toString();
     const url = query ? `${pathname}?${query}` : pathname;
+    const navigateOptions = { scroll: options?.scroll ?? true };
 
     if (options?.replace) {
-      router.replace(url);
+      router.replace(url, navigateOptions);
     } else {
-      router.push(url);
+      router.push(url, navigateOptions);
     }
   }
 
@@ -204,12 +205,30 @@ export function BrowseScreen() {
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const filtersRef = useRef<HTMLElement | null>(null);
+  const backgroundScrollYRef = useRef(0);
 
   useEffect(() => {
     if (!songParam) {
       setSelectedSong(null);
+      const targetScrollY = backgroundScrollYRef.current;
+      requestAnimationFrame(() => {
+        window.scrollTo(0, targetScrollY);
+      });
     }
   }, [songParam]);
+
+  useEffect(() => {
+    if (!selectedSong) {
+      return;
+    }
+
+    function handleScroll() {
+      backgroundScrollYRef.current = window.scrollY;
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [selectedSong]);
 
   useEffect(() => {
     if (!filtersOpen) {
@@ -495,10 +514,14 @@ export function BrowseScreen() {
   ]);
 
   function openSong(song: BrowseSongRecord) {
+    backgroundScrollYRef.current = window.scrollY;
     setSelectedSong(song);
-    updateBrowseParams((params) => {
-      params.set("song", song.id);
-    });
+    updateBrowseParams(
+      (params) => {
+        params.set("song", song.id);
+      },
+      { scroll: false },
+    );
   }
 
   function closeSong() {
