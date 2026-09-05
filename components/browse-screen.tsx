@@ -20,6 +20,7 @@ import {
   PlayIcon,
   SearchIcon,
   StopIcon,
+  TrophyIcon,
 } from "@/components/icons";
 import { useApp } from "@/lib/app-context";
 import {
@@ -38,7 +39,7 @@ import {
 } from "@/lib/library-browser";
 import { getLibraryGameModeLabel } from "@/lib/library-mode";
 
-type BrowseMode = "search" | "packs";
+type BrowseMode = "search" | "packs" | "popular";
 type FolderView = { packId: number; value: string } | null;
 
 interface Filters {
@@ -141,7 +142,8 @@ export function BrowseScreen() {
   const searchParams = useSearchParams();
 
   const modeParam = searchParams.get("mode");
-  const browseMode: BrowseMode = modeParam === "packs" ? modeParam : "search";
+  const browseMode: BrowseMode =
+    modeParam === "packs" || modeParam === "popular" ? modeParam : "search";
 
   const packIdParam = searchParams.get("packId");
   const packLabelParam = searchParams.get("packLabel");
@@ -370,7 +372,9 @@ export function BrowseScreen() {
     filters.minBpm != null ||
     filters.maxBpm != null;
 
-  const songsModeActive = browseMode === "search" || folderView !== null;
+  const songsModeActive = browseMode === "search" || browseMode === "popular" || folderView !== null;
+  const isSearchEmpty = browseMode === "search" && !folderView && !deferredSearch.trim();
+  const shouldFetchSongs = songsModeActive && !isSearchEmpty;
 
   const browseContextKey = useMemo(
     () =>
@@ -412,7 +416,7 @@ export function BrowseScreen() {
   }, [browseContextKey, songsModeActive]);
 
   useEffect(() => {
-    if (!songsModeActive) {
+    if (!shouldFetchSongs) {
       return;
     }
 
@@ -438,6 +442,10 @@ export function BrowseScreen() {
 
     if (browseMode === "search" && deferredSearch.trim()) {
       searchParams.set("query", deferredSearch.trim());
+    }
+
+    if (browseMode === "popular") {
+      searchParams.set("sort", "popular");
     }
 
     if (folderView) {
@@ -498,7 +506,7 @@ export function BrowseScreen() {
     folderView,
     browseContextKey,
     songQueryKey,
-    songsModeActive,
+    shouldFetchSongs,
     songsPage,
     shouldResetFilters,
   ]);
@@ -849,6 +857,14 @@ export function BrowseScreen() {
                 <FolderIcon className="tinyIcon" />
                 <span>Packs</span>
               </button>
+              <button
+                className={`segmentButton${browseMode === "popular" ? " isSelected" : ""}`}
+                onClick={() => setBrowseMode("popular")}
+                type="button"
+              >
+                <TrophyIcon className="tinyIcon" />
+                <span>Popular</span>
+              </button>
             </div>
             <button
               className={`iconButton${hasActiveFilters ? " isSelected" : ""}`}
@@ -996,10 +1012,18 @@ export function BrowseScreen() {
 
       {songsModeActive ? (
         <div className="stack tight">
-          {songsError ? <div className="card emptyInline">{songsError}</div> : null}
-          {!songsError && songs.length === 0 && !songsLoading ? (
-            <div className="card emptyInline">No songs found</div>
-          ) : null}
+          {isSearchEmpty ? (
+            <div className="card emptyInline">Type to search songs, artists, or packs</div>
+          ) : (
+            <>
+              {songsError ? <div className="card emptyInline">{songsError}</div> : null}
+              {!songsError && songs.length === 0 && !songsLoading ? (
+                <div className="card emptyInline">
+                  {browseMode === "popular" ? "No plays yet" : "No songs found"}
+                </div>
+              ) : null}
+            </>
+          )}
           {songs.map((song) => {
             const { min, max } = getDifficultyRange(song);
             const hasCustom = hasCustomDifficulty(song);

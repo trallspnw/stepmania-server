@@ -57,6 +57,7 @@ export async function GET(request: Request) {
   const page = getPage(request);
   const gameMode = normalizeLibraryGameMode(await getSetting(SETTING_KEYS.LIBRARY_GAME_MODE));
   const query = url.searchParams.get("query")?.trim() ?? "";
+  const sortByPopularity = url.searchParams.get("sort") === "popular";
   const packId = Number(url.searchParams.get("packId") ?? "");
   const minDifficulty = getOptionalNumberParam(url.searchParams, "minDifficulty");
   const maxDifficulty = getOptionalNumberParam(url.searchParams, "maxDifficulty");
@@ -146,42 +147,87 @@ export async function GET(request: Request) {
       : {}),
   };
 
-  const [total, songs, songBpmBounds, chartDifficultyBounds] = await Promise.all([
-    prisma.song.count({ where }),
-    prisma.song.findMany({
-      where,
-      orderBy: [{ title: "asc" }, { filePath: "asc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        pack: {
-          select: {
-            id: true,
-            folderName: true,
-            titles: true,
-          },
-        },
-        charts: {
-          where: {
-            gameMode,
-            ...((normalizedMinDifficulty != null || normalizedMaxDifficulty != null)
-              ? {
-                  meter: {
-                    ...(normalizedMinDifficulty != null ? { gte: normalizedMinDifficulty } : {}),
-                    ...(normalizedMaxDifficulty != null ? { lte: normalizedMaxDifficulty } : {}),
-                  },
-                }
-              : {}),
-          },
-          orderBy: [{ meter: "asc" }, { difficultySlot: "asc" }],
-          select: {
-            id: true,
-            difficultySlot: true,
-            meter: true,
-          },
+  const songInclude = {
+    pack: {
+      select: {
+        id: true,
+        folderName: true,
+        titles: true,
+      },
+    },
+    charts: {
+      where: {
+        gameMode,
+        ...((normalizedMinDifficulty != null || normalizedMaxDifficulty != null)
+          ? {
+              meter: {
+                ...(normalizedMinDifficulty != null ? { gte: normalizedMinDifficulty } : {}),
+                ...(normalizedMaxDifficulty != null ? { lte: normalizedMaxDifficulty } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: [{ meter: "asc" as const }, { difficultySlot: "asc" as const }],
+      select: {
+        id: true,
+        difficultySlot: true,
+        meter: true,
+      },
+    },
+  };
+
+  async function loadSongsSortedByTitle() {
+    const [total, songs] = await Promise.all([
+      prisma.song.count({ where }),
+      prisma.song.findMany({
+        where,
+        orderBy: [{ title: "asc" }, { filePath: "asc" }],
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
+        include: songInclude,
+      }),
+    ]);
+
+    return { total, songs };
+  }
+
+  async function loadSongsSortedByPopularity() {
+    const popularityGroups = await prisma.playHistory.groupBy({
+      by: ["songId"],
+      where: {
+        isTest: false,
+        song: where,
+      },
+      _count: {
+        _all: true,
+      },
+      orderBy: {
+        _count: {
+          songId: "desc",
         },
       },
-    }),
+    });
+
+    const orderedSongIds = popularityGroups.map((group) => group.songId);
+    const pageSongIds = orderedSongIds.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+    const rows = await prisma.song.findMany({
+      where: { id: { in: pageSongIds } },
+      include: songInclude,
+    });
+
+    const rowsById = new Map(rows.map((row) => [row.id, row]));
+
+    return {
+      total: orderedSongIds.length,
+      songs: pageSongIds
+        .map((id) => rowsById.get(id))
+        .filter((row): row is NonNullable<typeof row> => row != null),
+    };
+  }
+
+  const [{ total, songs }, songBpmBounds, chartDifficultyBounds] = await Promise.all([
+    sortByPopularity ? loadSongsSortedByPopularity() : loadSongsSortedByTitle(),
     prisma.song.aggregate({
       where: {
         ...baseWhere,
