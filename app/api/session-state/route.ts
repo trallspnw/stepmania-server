@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getSessionUserRecord } from "@/lib/admin";
+import { getEffectiveActor } from "@/lib/admin";
 
 export async function GET() {
-  const result = await getSessionUserRecord();
+  const result = await getEffectiveActor();
 
   if (!result) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
@@ -16,6 +16,12 @@ export async function GET() {
       displayName: result.user.displayName,
       isAdmin: result.user.isAdmin,
       isActive: result.user.isActive,
+    },
+    activeUser: {
+      id: result.activeUser.id,
+      displayName: result.activeUser.displayName,
+      isAdmin: result.activeUser.isAdmin,
+      isChild: result.activeUser.isChild,
     },
   });
 }

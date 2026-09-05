@@ -21,15 +21,18 @@ import { formatRelativeTime, getDifficultyTone, getGradeTone } from "@/lib/mock-
 
 export function ProfileScreen() {
   const {
+    activeProfile,
     currentUser,
     historyEntries,
     historyLoading,
     queueEntries,
     queueLoading,
+    setActiveProfile,
     setCurrentUser,
+    switchProfile,
   } = useApp();
   const [loginName, setLoginName] = useState(currentUser.loginName);
-  const [displayName, setDisplayName] = useState(currentUser.displayName);
+  const [displayName, setDisplayName] = useState(activeProfile.displayName);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [isSavingAccount, setIsSavingAccount] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -42,16 +45,16 @@ export function ProfileScreen() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const nextToastId = useRef(1);
 
-  const myQueueEntries = queueEntries.filter((entry) => entry.user.id === currentUser.id);
-  const myHistoryEntries = historyEntries.filter((entry) => entry.user.id === currentUser.id);
+  const myQueueEntries = queueEntries.filter((entry) => entry.user.id === activeProfile.id);
+  const myHistoryEntries = historyEntries.filter((entry) => entry.user.id === activeProfile.id);
 
   useEffect(() => {
     setLoginName(currentUser.loginName);
   }, [currentUser.loginName]);
 
   useEffect(() => {
-    setDisplayName(currentUser.displayName);
-  }, [currentUser.displayName]);
+    setDisplayName(activeProfile.displayName);
+  }, [activeProfile.displayName]);
 
   function pushToast(title: string, variant: ToastMessage["variant"] = "default") {
     const id = nextToastId.current;
@@ -102,13 +105,13 @@ export function ProfileScreen() {
     const nextLoginName = loginName.trim();
     const nextDisplayName = displayName.trim();
 
-    if (!nextLoginName || !nextDisplayName) {
+    if ((!activeProfile.isChild && !nextLoginName) || !nextDisplayName) {
       setAccountError("Login name and display name are required.");
       return;
     }
 
-    const loginNameChanged = nextLoginName !== currentUser.loginName;
-    const displayNameChanged = nextDisplayName !== currentUser.displayName;
+    const loginNameChanged = !activeProfile.isChild && nextLoginName !== currentUser.loginName;
+    const displayNameChanged = nextDisplayName !== activeProfile.displayName;
 
     if (!loginNameChanged && !displayNameChanged) {
       setAccountError(null);
@@ -153,16 +156,32 @@ export function ProfileScreen() {
     }
 
     const data = (await response.json()) as {
-      user: { id: number; loginName: string; displayName: string; isAdmin: boolean };
+      user: { id: number; loginName: string | null; displayName: string; isAdmin: boolean };
     };
 
-    setCurrentUser({
-      id: data.user.id,
-      loginName: data.user.loginName,
-      displayName: data.user.displayName,
-      isAdmin: data.user.isAdmin,
-    });
-    setLoginName(data.user.loginName);
+    if (!activeProfile.isChild) {
+      setCurrentUser({
+        id: data.user.id,
+        loginName: data.user.loginName ?? "",
+        displayName: data.user.displayName,
+        isAdmin: data.user.isAdmin,
+      });
+      setActiveProfile({
+        id: data.user.id,
+        displayName: data.user.displayName,
+        isAdmin: data.user.isAdmin,
+        isChild: false,
+      });
+      setLoginName(data.user.loginName ?? "");
+    } else {
+      setActiveProfile({
+        id: data.user.id,
+        displayName: data.user.displayName,
+        isAdmin: false,
+        isChild: true,
+      });
+    }
+
     setDisplayName(data.user.displayName);
     pushToast("Account updated");
   }
@@ -185,13 +204,20 @@ export function ProfileScreen() {
     await signOut({ callbackUrl: "/login" });
   }
 
+  async function handleSignOut() {
+    // Clear the active-profile cookie so this browser doesn't start the next login
+    // still "acting as" a child. This is always a full logout of the real adult.
+    await switchProfile(null);
+    await signOut({ callbackUrl: "/login" });
+  }
+
   return (
     <div className="stack profileStack">
       <section className="profileHero">
-        <div className="profileAvatar">{currentUser.displayName.charAt(0)}</div>
+        <div className="profileAvatar">{activeProfile.displayName.charAt(0)}</div>
         <div>
-          <h2>{currentUser.displayName}</h2>
-          {currentUser.isAdmin ? <span className="softPill">Admin</span> : null}
+          <h2>{activeProfile.displayName}</h2>
+          {activeProfile.isAdmin ? <span className="softPill">Admin</span> : null}
         </div>
       </section>
 
@@ -203,16 +229,18 @@ export function ProfileScreen() {
           </div>
         </header>
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="profile-login-name">Login Name</Label>
-            <Input
-              id="profile-login-name"
-              maxLength={64}
-              onChange={(event) => setLoginName(event.target.value)}
-              value={loginName}
-            />
-            <p className="muted">The name you sign in with.</p>
-          </div>
+          {!activeProfile.isChild ? (
+            <div className="space-y-2">
+              <Label htmlFor="profile-login-name">Login Name</Label>
+              <Input
+                id="profile-login-name"
+                maxLength={64}
+                onChange={(event) => setLoginName(event.target.value)}
+                value={loginName}
+              />
+              <p className="muted">The name you sign in with.</p>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="profile-display-name">Display Name</Label>
@@ -232,8 +260,8 @@ export function ProfileScreen() {
               className="profileActionButton"
               disabled={
                 isSavingAccount ||
-                (loginName.trim() === currentUser.loginName &&
-                  displayName.trim() === currentUser.displayName)
+                ((activeProfile.isChild || loginName.trim() === currentUser.loginName) &&
+                  displayName.trim() === activeProfile.displayName)
               }
               onClick={handleAccountUpdate}
               type="button"
@@ -323,49 +351,53 @@ export function ProfileScreen() {
         )}
       </section>
 
-      <section className="card panelCard">
-        <header className="panelHeader">
-          <div className="panelTitle">
-            <KeyRound className="tinyIcon" />
-            <span>Security</span>
+      {!activeProfile.isChild ? (
+        <section className="card panelCard">
+          <header className="panelHeader">
+            <div className="panelTitle">
+              <KeyRound className="tinyIcon" />
+              <span>Security</span>
+            </div>
+          </header>
+          <div className="splitRow">
+            <div>
+              <h3>Password</h3>
+              <p className="muted">Update your account password.</p>
+            </div>
+            <Button onClick={() => setPasswordDialogOpen(true)} type="button" variant="outline">
+              Change Password
+            </Button>
           </div>
-        </header>
-        <div className="splitRow">
-          <div>
-            <h3>Password</h3>
-            <p className="muted">Update your account password.</p>
-          </div>
-          <Button onClick={() => setPasswordDialogOpen(true)} type="button" variant="outline">
-            Change Password
-          </Button>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="card panelCard">
-        <header className="panelHeader">
-          <div className="panelTitle">
-            <Trash2 className="tinyIcon" />
-            <span>Delete Account</span>
+      {!activeProfile.isChild ? (
+        <section className="card panelCard">
+          <header className="panelHeader">
+            <div className="panelTitle">
+              <Trash2 className="tinyIcon" />
+              <span>Delete Account</span>
+            </div>
+          </header>
+          <div className="splitRow">
+            <div>
+              <h3>Remove this account</h3>
+              <p className="muted">This permanently deletes your account and related records.</p>
+            </div>
+            <Button
+              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={() => setDeleteDialogOpen(true)}
+              type="button"
+            >
+              Delete Account
+            </Button>
           </div>
-        </header>
-        <div className="splitRow">
-          <div>
-            <h3>Remove this account</h3>
-            <p className="muted">This permanently deletes your account and related records.</p>
-          </div>
-          <Button
-            className="bg-red-600 text-white hover:bg-red-700"
-            onClick={() => setDeleteDialogOpen(true)}
-            type="button"
-          >
-            Delete Account
-          </Button>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <button
         className="ghostButton logoutButton"
-        onClick={() => signOut({ callbackUrl: "/login" })}
+        onClick={() => void handleSignOut()}
         type="button"
       >
         <LogOutIcon className="tinyIcon" />

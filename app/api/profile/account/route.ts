@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
-import { getSessionUserRecord } from "@/lib/admin";
+import { getEffectiveActor, getSessionUserRecord } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { deleteUserAndOwnedData } from "@/lib/user-deletion";
 import { getTakenIdentityField, normalizeDisplayName, normalizeLoginName } from "@/lib/users";
 
 export async function PUT(request: Request) {
-  const result = await getSessionUserRecord();
+  const result = await getEffectiveActor();
 
   if (!result) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);
-  const loginName = body?.loginName === undefined ? undefined : String(body.loginName).trim();
+  const isChild = result.activeUser.isChild;
+  const loginName =
+    body?.loginName === undefined || isChild ? undefined : String(body.loginName).trim();
   const displayName =
     body?.displayName === undefined ? undefined : String(body.displayName).trim();
 
@@ -26,7 +28,7 @@ export async function PUT(request: Request) {
 
   try {
     const user = await prisma.user.update({
-      where: { id: result.user.id },
+      where: { id: result.activeUser.id },
       data: {
         ...(loginName !== undefined
           ? { loginName, loginNameNormalized: normalizeLoginName(loginName) }
@@ -61,6 +63,9 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE() {
+  // Deliberately uses getSessionUserRecord (not getEffectiveActor): this always deletes the
+  // real logged-in adult's own account, even while acting as a child. There is no code path
+  // here that could delete a child — child deletion only happens via the admin console.
   const result = await getSessionUserRecord();
 
   if (!result) {

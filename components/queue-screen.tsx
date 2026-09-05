@@ -5,7 +5,7 @@ import { useApp } from "@/lib/app-context";
 import { getDifficultyTone } from "@/lib/library-browser";
 
 export function QueueScreen() {
-  const { currentUser, queueEntries, queueError, queueLoading, removeFromQueue } = useApp();
+  const { queueEntries, queueError, queueLoading, removeFromQueue } = useApp();
 
   if (queueLoading && queueEntries.length === 0) {
     return (
@@ -47,7 +47,6 @@ export function QueueScreen() {
     <div className="stack">
       {queueEntries.map((entry, index) => {
         const isPlaying = entry.status === "playing";
-        const isOwn = entry.user.id === currentUser.id;
 
         return (
           <article
@@ -73,7 +72,7 @@ export function QueueScreen() {
                 <span className="muted">by {entry.user.displayName}</span>
               </div>
             </div>
-            {isOwn && !isPlaying ? (
+            {entry.canRemove && !isPlaying ? (
               <button
                 aria-label="Remove from queue"
                 className="iconButton dangerButton"

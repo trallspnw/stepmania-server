@@ -23,6 +23,13 @@ interface CurrentUser {
   isAdmin: boolean;
 }
 
+interface ActiveProfile {
+  id: number;
+  displayName: string;
+  isAdmin: boolean;
+  isChild: boolean;
+}
+
 type AppAction = { type: "SIGN_OUT" };
 
 function appReducer(state: null, _action: AppAction) {
@@ -32,6 +39,9 @@ function appReducer(state: null, _action: AppAction) {
 interface AppContextValue {
   currentUser: CurrentUser;
   setCurrentUser: (currentUser: CurrentUser) => void;
+  activeProfile: ActiveProfile;
+  setActiveProfile: (activeProfile: ActiveProfile) => void;
+  switchProfile: (userId: number | null) => Promise<boolean>;
   queueEntries: QueueEntryRecord[];
   queueLoading: boolean;
   queueError: string | null;
@@ -50,12 +60,15 @@ const AppContext = createContext<AppContextValue | undefined>(undefined);
 export function AppProvider({
   children,
   currentUser,
+  initialActiveProfile,
 }: {
   children: ReactNode;
   currentUser: CurrentUser;
+  initialActiveProfile: ActiveProfile;
 }) {
   const [, dispatch] = useReducer(appReducer, null);
   const [currentUserState, setCurrentUserState] = useState(currentUser);
+  const [activeProfileState, setActiveProfileState] = useState(initialActiveProfile);
   const [queueEntries, setQueueEntries] = useState<QueueEntryRecord[]>([]);
   const [queueLoading, setQueueLoading] = useState(true);
   const [queueError, setQueueError] = useState<string | null>(null);
@@ -166,6 +179,28 @@ export function AppProvider({
     () => ({
       currentUser: currentUserState,
       setCurrentUser: setCurrentUserState,
+      activeProfile: activeProfileState,
+      setActiveProfile: setActiveProfileState,
+      switchProfile: async (userId) => {
+        const response = await fetch("/api/session/active-profile", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ userId }),
+        });
+
+        if (!response.ok) {
+          return false;
+        }
+
+        const data = (await response.json()) as { activeUser: ActiveProfile };
+        setActiveProfileState(data.activeUser);
+        void refreshQueue();
+        void refreshHistory();
+        return true;
+      },
       queueEntries,
       queueLoading,
       queueError,
@@ -212,6 +247,7 @@ export function AppProvider({
     }),
     [
       currentUserState,
+      activeProfileState,
       historyEntries,
       historyError,
       historyLoading,

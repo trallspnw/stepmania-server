@@ -1,13 +1,17 @@
 import bcrypt from "bcrypt";
 import { NextResponse } from "next/server";
-import { getSessionUserRecord } from "@/lib/admin";
+import { getEffectiveActor } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 export async function PUT(request: Request) {
-  const result = await getSessionUserRecord();
+  const result = await getEffectiveActor();
 
   if (!result) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (result.activeUser.isChild) {
+    return NextResponse.json({ error: "not_applicable" }, { status: 400 });
   }
 
   const body = await request.json().catch(() => ({}));
@@ -20,7 +24,7 @@ export async function PUT(request: Request) {
   const passwordHash = await bcrypt.hash(password, 12);
 
   await prisma.user.update({
-    where: { id: result.user.id },
+    where: { id: result.activeUser.id },
     data: {
       passwordHash,
       // Existing JWT sessions remain valid until expiry.

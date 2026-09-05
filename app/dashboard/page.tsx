@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { DanceQueueApp } from "@/components/dance-queue-app";
-import { getSessionUserRecord } from "@/lib/admin";
+import { getEffectiveActor } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const result = await getSessionUserRecord();
+  const result = await getEffectiveActor();
 
   if (!result) {
     redirect("/login");
@@ -20,6 +20,12 @@ export default async function DashboardPage() {
           loginName: result.user.loginName ?? "",
           displayName: result.user.displayName,
           isAdmin: result.user.isAdmin,
+        }}
+        initialActiveProfile={{
+          id: result.activeUser.id,
+          displayName: result.activeUser.displayName,
+          isAdmin: result.activeUser.isAdmin,
+          isChild: result.activeUser.isChild,
         }}
       />
     </Suspense>

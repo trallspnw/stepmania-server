@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { getSessionUserRecord } from "@/lib/admin";
+import { getEffectiveActor } from "@/lib/admin";
 import { addQueueEntry, getQueueEntriesForUser } from "@/lib/queue-server";
 
 export async function GET() {
-  const result = await getSessionUserRecord();
+  const result = await getEffectiveActor();
 
   if (!result) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const entries = await getQueueEntriesForUser(result.user.id, result.user.isAdmin);
+  const entries = await getQueueEntriesForUser(result.activeUser.id, result.user.isAdmin);
 
   return NextResponse.json({
     entries,
@@ -17,7 +17,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const result = await getSessionUserRecord();
+  const result = await getEffectiveActor();
 
   if (!result) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   try {
     await addQueueEntry({
-      userId: result.user.id,
+      userId: result.activeUser.id,
       songId,
       chartId,
     });
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const entries = await getQueueEntriesForUser(result.user.id, result.user.isAdmin);
+  const entries = await getQueueEntriesForUser(result.activeUser.id, result.user.isAdmin);
 
   return NextResponse.json({
     entries,

@@ -18,6 +18,7 @@ type QueueEntryWithRelations = {
   user: {
     id: number;
     displayName: string;
+    isChild: boolean;
   };
   song: {
     id: number;
@@ -76,7 +77,7 @@ function mapQueueEntry(entry: QueueEntryWithRelations, userId: number, isAdmin: 
       difficultySlot: normalizeDifficultySlot(entry.chart.difficultySlot),
       meter: entry.chart.meter,
     },
-    canRemove: isAdmin || entry.user.id === userId,
+    canRemove: isAdmin || entry.user.id === userId || entry.user.isChild,
   };
 }
 
@@ -92,6 +93,7 @@ async function getQueueEntriesWithRelations(tx: QueueDbClient): Promise<QueueEnt
         select: {
           id: true,
           displayName: true,
+          isChild: true,
         },
       },
       song: {
@@ -311,6 +313,11 @@ export async function removeQueueEntry(input: {
       select: {
         id: true,
         userId: true,
+        user: {
+          select: {
+            isChild: true,
+          },
+        },
       },
     });
 
@@ -318,7 +325,10 @@ export async function removeQueueEntry(input: {
       throw new Error("Queue entry not found.");
     }
 
-    if (!input.requesterIsAdmin && entry.userId !== input.requesterUserId) {
+    const canRemove =
+      input.requesterIsAdmin || entry.userId === input.requesterUserId || entry.user.isChild;
+
+    if (!canRemove) {
       throw new Error("Forbidden");
     }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSessionUserRecord } from "@/lib/admin";
+import { getEffectiveActor } from "@/lib/admin";
 import { getQueueEntriesForUser, removeQueueEntry } from "@/lib/queue-server";
 
 interface RouteContext {
@@ -9,7 +9,7 @@ interface RouteContext {
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
-  const result = await getSessionUserRecord();
+  const result = await getEffectiveActor();
 
   if (!result) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,7 +25,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   try {
     await removeQueueEntry({
       entryId,
-      requesterUserId: result.user.id,
+      requesterUserId: result.activeUser.id,
       requesterIsAdmin: result.user.isAdmin,
     });
   } catch (error) {
@@ -35,7 +35,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: message }, { status });
   }
 
-  const entries = await getQueueEntriesForUser(result.user.id, result.user.isAdmin);
+  const entries = await getQueueEntriesForUser(result.activeUser.id, result.user.isAdmin);
 
   return NextResponse.json({
     entries,

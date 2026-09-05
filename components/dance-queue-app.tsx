@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import styles from "@/components/dance-queue-app.module.css";
 import { BottomNav, Tab } from "@/components/bottom-nav";
@@ -16,6 +16,14 @@ import {
 } from "@/components/icons";
 import { ProfileScreen } from "@/components/profile-screen";
 import { QueueScreen } from "@/components/queue-screen";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AppProvider, useApp } from "@/lib/app-context";
 
 interface DanceQueueAppProps {
@@ -25,6 +33,17 @@ interface DanceQueueAppProps {
     displayName: string;
     isAdmin: boolean;
   };
+  initialActiveProfile: {
+    id: number;
+    displayName: string;
+    isAdmin: boolean;
+    isChild: boolean;
+  };
+}
+
+interface SelectableChild {
+  id: number;
+  displayName: string;
 }
 
 const tabMeta = {
@@ -50,8 +69,10 @@ function AppFrame() {
     params.set("tab", tab);
     router.push(`/dashboard?${params.toString()}`);
   }
-  const { currentUser, setCurrentUser } = useApp();
+  const { activeProfile, currentUser, setActiveProfile, setCurrentUser, switchProfile } = useApp();
   const signingOutRef = useRef(false);
+  const [switchDialogOpen, setSwitchDialogOpen] = useState(false);
+  const [selectableChildren, setSelectableChildren] = useState<SelectableChild[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +97,12 @@ function AppFrame() {
           isAdmin: boolean;
           isActive: boolean;
         };
+        activeUser?: {
+          id: number;
+          displayName: string;
+          isAdmin: boolean;
+          isChild: boolean;
+        };
       };
 
       if (!data.authenticated || !data.user?.isActive) {
@@ -93,6 +120,10 @@ function AppFrame() {
           displayName: data.user.displayName,
           isAdmin: data.user.isAdmin,
         });
+
+        if (data.activeUser) {
+          setActiveProfile(data.activeUser);
+        }
       }
     }
 
@@ -105,7 +136,40 @@ function AppFrame() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [setCurrentUser]);
+  }, [setActiveProfile, setCurrentUser]);
+
+  useEffect(() => {
+    if (!switchDialogOpen) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSelectableChildren() {
+      const response = await fetch("/api/children/active", { cache: "no-store" });
+
+      if (!response.ok || cancelled) {
+        return;
+      }
+
+      const data = (await response.json()) as SelectableChild[];
+
+      if (!cancelled) {
+        setSelectableChildren(data);
+      }
+    }
+
+    void loadSelectableChildren();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [switchDialogOpen]);
+
+  async function handleSelectProfile(userId: number | null) {
+    await switchProfile(userId);
+    setSwitchDialogOpen(false);
+  }
 
   return (
     <div className={styles.root}>
@@ -120,11 +184,24 @@ function AppFrame() {
                   <h1>{title}</h1>
                 </div>
               </div>
-              {currentUser.isAdmin ? (
-                <Link className="headerAction" href="/admin">
-                  Admin
-                </Link>
-              ) : null}
+              <div className="topBarActions">
+                <button
+                  className="headerAction"
+                  onClick={() => setSwitchDialogOpen(true)}
+                  type="button"
+                >
+                  {activeProfile.isChild ? (
+                    <span className="childProfileName">{activeProfile.displayName}</span>
+                  ) : (
+                    activeProfile.displayName
+                  )}
+                </button>
+                {currentUser.isAdmin ? (
+                  <Link className="headerAction" href="/admin">
+                    Admin
+                  </Link>
+                ) : null}
+              </div>
             </div>
           </header>
 
@@ -138,13 +215,44 @@ function AppFrame() {
           <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
         </div>
       </div>
+
+      <Dialog onOpenChange={setSwitchDialogOpen} open={switchDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Switch Profile</DialogTitle>
+            <DialogDescription>
+              Choose who queue additions and the Profile tab are attributed to.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3">
+            <Button
+              onClick={() => void handleSelectProfile(null)}
+              type="button"
+              variant={activeProfile.isChild ? "outline" : "default"}
+            >
+              You ({currentUser.displayName})
+            </Button>
+            {selectableChildren.map((child) => (
+              <Button
+                key={child.id}
+                onClick={() => void handleSelectProfile(child.id)}
+                type="button"
+                variant={activeProfile.isChild && activeProfile.id === child.id ? "default" : "outline"}
+              >
+                {child.displayName}
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-export function DanceQueueApp({ currentUser }: DanceQueueAppProps) {
+export function DanceQueueApp({ currentUser, initialActiveProfile }: DanceQueueAppProps) {
   return (
-    <AppProvider currentUser={currentUser}>
+    <AppProvider currentUser={currentUser} initialActiveProfile={initialActiveProfile}>
       <AppFrame />
     </AppProvider>
   );

@@ -98,6 +98,12 @@
   min-width: 0;
 }
 
+.root :global(.topBarActions) {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .root :global(.topBarLabel) {
   margin-bottom: 0.2rem;
   color: var(--text-muted);
@@ -270,6 +276,17 @@
 .root :global(.softPill) {
   background: var(--bg-muted);
   color: var(--text);
+}
+
+.root :global(.childProfileName) {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ff8fb1, #ffd166, #6ec6ff);
+  color: #3b2a4a;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
 }
 
 .root :global(.difficulty-beginner) {
