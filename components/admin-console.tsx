@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Copy, KeyRound, RefreshCw, Shield, ShieldOff, Trash2, UserX } from "lucide-react";
+import { Copy, KeyRound, Pencil, RefreshCw, Shield, ShieldOff, Trash2, UserX } from "lucide-react";
 import { LIBRARY_GAME_MODE_OPTIONS } from "@/lib/library-mode";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ import type { QueueEntryRecord, QueueResponse } from "@/lib/queue-types";
 
 type AdminUser = {
   id: number;
+  loginName: string;
   displayName: string;
   isAdmin: boolean;
   isActive: boolean;
@@ -228,6 +229,10 @@ export function AdminConsole({
   } | null>(null);
   const [passwordUser, setPasswordUser] = useState<AdminUser | null>(null);
   const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
+  const [editUser, setEditUser] = useState<AdminUser | null>(null);
+  const [editLoginName, setEditLoginName] = useState("");
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [editUserError, setEditUserError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -647,6 +652,59 @@ export function AdminConsole({
     setConfirmPassword("");
   }
 
+  async function handleEditUser() {
+    if (!editUser) {
+      return;
+    }
+
+    const nextLoginName = editLoginName.trim();
+    const nextDisplayName = editDisplayName.trim();
+
+    if (!nextLoginName || !nextDisplayName) {
+      setEditUserError("Login name and display name are required.");
+      return;
+    }
+
+    setEditUserError(null);
+    setLoadingId(`edit-${editUser.id}`);
+
+    const response = await fetch(`/api/admin/users/${editUser.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ loginName: nextLoginName, displayName: nextDisplayName }),
+    });
+
+    setLoadingId(null);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+
+      switch (data.error) {
+        case "login_name_taken":
+          setEditUserError("That login name is already taken.");
+          break;
+        case "display_name_taken":
+          setEditUserError("That display name is already taken.");
+          break;
+        default:
+          setEditUserError("Update failed.");
+          break;
+      }
+
+      return;
+    }
+
+    const updatedUser = (await response.json()) as AdminUser;
+
+    setUsers((current) =>
+      current.map((user) => (user.id === updatedUser.id ? updatedUser : user)),
+    );
+    pushToast(`Updated ${updatedUser.displayName}`);
+    setEditUser(null);
+  }
+
   async function handleDeleteUser() {
     if (!deleteUser) {
       return;
@@ -1038,6 +1096,7 @@ export function AdminConsole({
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Login Name</TableHead>
                       <TableHead>Display Name</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
@@ -1051,6 +1110,9 @@ export function AdminConsole({
 
                       return (
                         <TableRow key={user.id}>
+                          <TableCell className="font-medium text-stone-900">
+                            {user.loginName}
+                          </TableCell>
                           <TableCell className="font-medium text-stone-900">
                             {user.displayName}
                           </TableCell>
@@ -1092,6 +1154,20 @@ export function AdminConsole({
                                   <Shield className="mr-2 h-4 w-4" />
                                 )}
                                 {user.isAdmin ? "Demote to Player" : "Promote to Admin"}
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  setEditUser(user);
+                                  setEditLoginName(user.loginName);
+                                  setEditDisplayName(user.displayName);
+                                  setEditUserError(null);
+                                }}
+                                size="sm"
+                                type="button"
+                                variant="outline"
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
                               </Button>
                               <Button
                                 disabled={isSelf}
@@ -2280,6 +2356,52 @@ export function AdminConsole({
               ) : (
                 "Clear Test History"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={() => setEditUser(null)} open={editUser !== null}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update the login name and display name for {editUser?.displayName}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-login-name">Login Name</Label>
+              <Input
+                id="edit-login-name"
+                onChange={(event) => setEditLoginName(event.target.value)}
+                value={editLoginName}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-display-name">Display Name</Label>
+              <Input
+                id="edit-display-name"
+                onChange={(event) => setEditDisplayName(event.target.value)}
+                value={editDisplayName}
+              />
+            </div>
+
+            {editUserError ? <p className="text-sm text-red-600">{editUserError}</p> : null}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setEditUser(null)} type="button" variant="outline">
+              Cancel
+            </Button>
+            <Button
+              disabled={loadingId === `edit-${editUser?.id ?? ""}`}
+              onClick={handleEditUser}
+              type="button"
+            >
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

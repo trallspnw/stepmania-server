@@ -55,6 +55,7 @@ export default async function AdminPage() {
         }))}
         initialUsers={users.map((user) => ({
           id: user.id,
+          loginName: user.loginName,
           displayName: user.displayName,
           isAdmin: user.isAdmin,
           isActive: user.isActive,

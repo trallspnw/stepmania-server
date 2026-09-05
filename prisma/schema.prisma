@@ -9,6 +9,8 @@ datasource db {
 
 model User {
   id                    Int      @id @default(autoincrement())
+  loginName             String   @map("login_name")
+  loginNameNormalized   String   @unique @map("login_name_normalized")
   displayName           String   @map("display_name")
   displayNameNormalized String   @unique @map("display_name_normalized")
   passwordHash          String   @map("password_hash")

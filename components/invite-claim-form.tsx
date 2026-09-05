@@ -25,6 +25,7 @@ export function InviteClaimForm({ action, error }: InviteClaimFormProps) {
         setFormError(undefined);
 
         const formData = new FormData(event.currentTarget);
+        const loginName = String(formData.get("loginName") ?? "").trim();
         const displayName = String(formData.get("displayName") ?? "").trim();
         const password = String(formData.get("password") ?? "");
         const confirmPassword = String(formData.get("confirmPassword") ?? "");
@@ -35,6 +36,7 @@ export function InviteClaimForm({ action, error }: InviteClaimFormProps) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            loginName,
             displayName,
             password,
             confirmPassword,
@@ -45,6 +47,9 @@ export function InviteClaimForm({ action, error }: InviteClaimFormProps) {
           const data = (await response.json().catch(() => ({}))) as { error?: string };
 
           switch (data.error) {
+            case "login_name_taken":
+              setFormError("That login name is already taken.");
+              break;
             case "display_name_taken":
               setFormError("That display name is already taken.");
               break;
@@ -52,7 +57,7 @@ export function InviteClaimForm({ action, error }: InviteClaimFormProps) {
               setFormError("Password and confirmation must match.");
               break;
             case "missing_fields":
-              setFormError("Display name and password are required.");
+              setFormError("Login name, display name, and password are required.");
               break;
             case "password_too_short":
               setFormError("Password must be at least 8 characters.");
@@ -70,7 +75,7 @@ export function InviteClaimForm({ action, error }: InviteClaimFormProps) {
 
         const data = (await response.json()) as { redirectTo: string };
         const result = await signIn("credentials", {
-          displayName,
+          loginName,
           password,
           redirect: false,
           callbackUrl: data.redirectTo,
@@ -92,9 +97,20 @@ export function InviteClaimForm({ action, error }: InviteClaimFormProps) {
       ) : null}
 
       <div className="space-y-2">
-        <Label htmlFor="displayName">Display name</Label>
+        <Label htmlFor="loginName">Login name</Label>
         <Input
           autoComplete="username"
+          id="loginName"
+          name="loginName"
+          placeholder="playerone"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="displayName">Display name</Label>
+        <Input
+          autoComplete="nickname"
           id="displayName"
           name="displayName"
           placeholder="Player One"

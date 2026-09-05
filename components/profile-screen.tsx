@@ -28,9 +28,10 @@ export function ProfileScreen() {
     queueLoading,
     setCurrentUser,
   } = useApp();
+  const [loginName, setLoginName] = useState(currentUser.loginName);
   const [displayName, setDisplayName] = useState(currentUser.displayName);
-  const [displayNameError, setDisplayNameError] = useState<string | null>(null);
-  const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -43,6 +44,10 @@ export function ProfileScreen() {
 
   const myQueueEntries = queueEntries.filter((entry) => entry.user.id === currentUser.id);
   const myHistoryEntries = historyEntries.filter((entry) => entry.user.id === currentUser.id);
+
+  useEffect(() => {
+    setLoginName(currentUser.loginName);
+  }, [currentUser.loginName]);
 
   useEffect(() => {
     setDisplayName(currentUser.displayName);
@@ -93,44 +98,54 @@ export function ProfileScreen() {
     pushToast("Password updated");
   }
 
-  async function handleDisplayNameUpdate() {
+  async function handleAccountUpdate() {
+    const nextLoginName = loginName.trim();
     const nextDisplayName = displayName.trim();
 
-    if (!nextDisplayName) {
-      setDisplayNameError("Display name is required.");
+    if (!nextLoginName || !nextDisplayName) {
+      setAccountError("Login name and display name are required.");
       return;
     }
 
-    if (nextDisplayName === currentUser.displayName) {
-      setDisplayNameError(null);
+    const loginNameChanged = nextLoginName !== currentUser.loginName;
+    const displayNameChanged = nextDisplayName !== currentUser.displayName;
+
+    if (!loginNameChanged && !displayNameChanged) {
+      setAccountError(null);
       return;
     }
 
-    setDisplayNameError(null);
-    setIsSavingDisplayName(true);
+    setAccountError(null);
+    setIsSavingAccount(true);
 
     const response = await fetch("/api/profile/account", {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ displayName: nextDisplayName }),
+      body: JSON.stringify({
+        ...(loginNameChanged ? { loginName: nextLoginName } : {}),
+        ...(displayNameChanged ? { displayName: nextDisplayName } : {}),
+      }),
     });
 
-    setIsSavingDisplayName(false);
+    setIsSavingAccount(false);
 
     if (!response.ok) {
       const data = (await response.json().catch(() => ({}))) as { error?: string };
 
       switch (data.error) {
+        case "login_name_taken":
+          setAccountError("That login name is already taken.");
+          break;
         case "display_name_taken":
-          setDisplayNameError("That display name is already taken.");
+          setAccountError("That display name is already taken.");
           break;
         case "missing_fields":
-          setDisplayNameError("Display name is required.");
+          setAccountError("Login name and display name are required.");
           break;
         default:
-          setDisplayNameError("Display name update failed.");
+          setAccountError("Account update failed.");
           break;
       }
 
@@ -138,16 +153,18 @@ export function ProfileScreen() {
     }
 
     const data = (await response.json()) as {
-      user: { id: number; displayName: string; isAdmin: boolean };
+      user: { id: number; loginName: string; displayName: string; isAdmin: boolean };
     };
 
     setCurrentUser({
       id: data.user.id,
+      loginName: data.user.loginName,
       displayName: data.user.displayName,
       isAdmin: data.user.isAdmin,
     });
+    setLoginName(data.user.loginName);
     setDisplayName(data.user.displayName);
-    pushToast("Display name updated");
+    pushToast("Account updated");
   }
 
   async function handleDeleteAccount() {
@@ -187,6 +204,17 @@ export function ProfileScreen() {
         </header>
         <div className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="profile-login-name">Login Name</Label>
+            <Input
+              id="profile-login-name"
+              maxLength={64}
+              onChange={(event) => setLoginName(event.target.value)}
+              value={loginName}
+            />
+            <p className="muted">The name you sign in with.</p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="profile-display-name">Display Name</Label>
             <Input
               id="profile-display-name"
@@ -194,19 +222,23 @@ export function ProfileScreen() {
               onChange={(event) => setDisplayName(event.target.value)}
               value={displayName}
             />
+            <p className="muted">The name shown throughout the app.</p>
           </div>
 
-          {displayNameError ? <p className="text-sm text-red-600">{displayNameError}</p> : null}
+          {accountError ? <p className="text-sm text-red-600">{accountError}</p> : null}
 
           <div className="profileActionRow">
-            <p className="muted profileActionHint">Update the name shown throughout the app.</p>
             <Button
               className="profileActionButton"
-              disabled={isSavingDisplayName || displayName.trim() === currentUser.displayName}
-              onClick={handleDisplayNameUpdate}
+              disabled={
+                isSavingAccount ||
+                (loginName.trim() === currentUser.loginName &&
+                  displayName.trim() === currentUser.displayName)
+              }
+              onClick={handleAccountUpdate}
               type="button"
             >
-              {isSavingDisplayName ? (
+              {isSavingAccount ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                   Saving
@@ -214,7 +246,7 @@ export function ProfileScreen() {
               ) : (
                 <>
                   <Check className="mr-2 h-4 w-4" />
-                  Save Username
+                  Save Changes
                 </>
               )}
             </Button>

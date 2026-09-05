@@ -21,6 +21,7 @@ import { AppProvider, useApp } from "@/lib/app-context";
 interface DanceQueueAppProps {
   currentUser: {
     id: number;
+    loginName: string;
     displayName: string;
     isAdmin: boolean;
   };
@@ -70,6 +71,7 @@ function AppFrame() {
         authenticated: boolean;
         user?: {
           id: number;
+          loginName: string;
           displayName: string;
           isAdmin: boolean;
           isActive: boolean;
@@ -87,6 +89,7 @@ function AppFrame() {
       if (!cancelled) {
         setCurrentUser({
           id: data.user.id,
+          loginName: data.user.loginName,
           displayName: data.user.displayName,
           isAdmin: data.user.isAdmin,
         });

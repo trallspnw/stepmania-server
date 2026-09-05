@@ -1,7 +1,11 @@
 import bcrypt from "bcrypt";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { normalizeDisplayName } from "@/lib/users";
+import {
+  getTakenIdentityField,
+  normalizeDisplayName,
+  normalizeLoginName,
+} from "@/lib/users";
 
 export async function POST(
   request: Request,
@@ -9,11 +13,12 @@ export async function POST(
 ) {
   const { id } = await params;
   const body = await request.json().catch(() => null);
+  const loginName = String(body?.loginName ?? "").trim();
   const displayName = String(body?.displayName ?? "").trim();
   const password = String(body?.password ?? "");
   const confirmPassword = String(body?.confirmPassword ?? "");
 
-  if (!displayName || !password || !confirmPassword) {
+  if (!loginName || !displayName || !password || !confirmPassword) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
 
@@ -43,6 +48,8 @@ export async function POST(
 
       const user = await tx.user.create({
         data: {
+          loginName,
+          loginNameNormalized: normalizeLoginName(loginName),
           displayName,
           displayNameNormalized: normalizeDisplayName(displayName),
           passwordHash,
@@ -63,12 +70,13 @@ export async function POST(
       return NextResponse.json({ error: "invalid_invite" }, { status: 400 });
     }
 
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "P2002"
-    ) {
+    const takenField = getTakenIdentityField(error);
+
+    if (takenField === "login") {
+      return NextResponse.json({ error: "login_name_taken" }, { status: 409 });
+    }
+
+    if (takenField === "display") {
       return NextResponse.json({ error: "display_name_taken" }, { status: 409 });
     }
 

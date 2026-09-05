@@ -12,6 +12,7 @@ export async function GET() {
     authenticated: true,
     user: {
       id: result.user.id,
+      loginName: result.user.loginName,
       displayName: result.user.displayName,
       isAdmin: result.user.isAdmin,
       isActive: result.user.isActive,

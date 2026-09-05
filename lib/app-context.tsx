@@ -18,6 +18,7 @@ const HISTORY_POLL_INTERVAL_MS = 5000;
 
 interface CurrentUser {
   id: number;
+  loginName: string;
   displayName: string;
   isAdmin: boolean;
 }

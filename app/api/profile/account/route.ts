@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUserRecord } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { deleteUserAndOwnedData } from "@/lib/user-deletion";
-import { normalizeDisplayName } from "@/lib/users";
+import { getTakenIdentityField, normalizeDisplayName, normalizeLoginName } from "@/lib/users";
 
 export async function PUT(request: Request) {
   const result = await getSessionUserRecord();
@@ -12,9 +12,15 @@ export async function PUT(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const displayName = String(body?.displayName ?? "").trim();
+  const loginName = body?.loginName === undefined ? undefined : String(body.loginName).trim();
+  const displayName =
+    body?.displayName === undefined ? undefined : String(body.displayName).trim();
 
-  if (!displayName) {
+  if (loginName === undefined && displayName === undefined) {
+    return NextResponse.json({ error: "missing_fields" }, { status: 400 });
+  }
+
+  if (loginName === "" || displayName === "") {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
 
@@ -22,11 +28,16 @@ export async function PUT(request: Request) {
     const user = await prisma.user.update({
       where: { id: result.user.id },
       data: {
-        displayName,
-        displayNameNormalized: normalizeDisplayName(displayName),
+        ...(loginName !== undefined
+          ? { loginName, loginNameNormalized: normalizeLoginName(loginName) }
+          : {}),
+        ...(displayName !== undefined
+          ? { displayName, displayNameNormalized: normalizeDisplayName(displayName) }
+          : {}),
       },
       select: {
         id: true,
+        loginName: true,
         displayName: true,
         isAdmin: true,
         isActive: true,
@@ -35,12 +46,13 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ ok: true, user });
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "P2002"
-    ) {
+    const takenField = getTakenIdentityField(error);
+
+    if (takenField === "login") {
+      return NextResponse.json({ error: "login_name_taken" }, { status: 409 });
+    }
+
+    if (takenField === "display") {
       return NextResponse.json({ error: "display_name_taken" }, { status: 409 });
     }
 

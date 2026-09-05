@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
-import { normalizeDisplayName } from "@/lib/users";
+import { normalizeLoginName } from "@/lib/users";
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -16,8 +16,8 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        displayName: {
-          label: "Display name",
+        loginName: {
+          label: "Login name",
           type: "text",
         },
         password: {
@@ -26,16 +26,16 @@ export const authOptions: NextAuthOptions = {
         },
       },
       async authorize(credentials) {
-        const displayName = credentials?.displayName?.trim();
+        const loginName = credentials?.loginName?.trim();
         const password = credentials?.password;
 
-        if (!displayName || !password) {
+        if (!loginName || !password) {
           return null;
         }
 
         const user = await prisma.user.findUnique({
           where: {
-            displayNameNormalized: normalizeDisplayName(displayName),
+            loginNameNormalized: normalizeLoginName(loginName),
           },
         });
 

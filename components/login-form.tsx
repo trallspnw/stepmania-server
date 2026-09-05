@@ -24,11 +24,11 @@ export function LoginForm({ error: initialError }: LoginFormProps) {
         setError(undefined);
 
         const formData = new FormData(event.currentTarget);
-        const displayName = String(formData.get("displayName") ?? "");
+        const loginName = String(formData.get("loginName") ?? "");
         const password = String(formData.get("password") ?? "");
 
         const result = await signIn("credentials", {
-          displayName,
+          loginName,
           password,
           redirect: false,
           callbackUrl: "/dashboard",
@@ -50,12 +50,11 @@ export function LoginForm({ error: initialError }: LoginFormProps) {
       ) : null}
 
       <div className="space-y-2">
-        <Label htmlFor="displayName">Display name</Label>
+        <Label htmlFor="loginName">Login name</Label>
         <Input
           autoComplete="username"
-          id="displayName"
-          name="displayName"
-          placeholder="Arcade Admin"
+          id="loginName"
+          name="loginName"
           required
         />
       </div>
