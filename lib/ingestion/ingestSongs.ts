@@ -1,8 +1,8 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { chooseSimfile } from "@/lib/song-files";
+import { hashFolder } from "./folderChecksum";
 import { parseSimfile } from "./parseSimfile";
 
 export type SongIngestResult = {
@@ -127,8 +127,7 @@ export async function ingestSongs(
         continue;
       }
 
-      const rawBytes = fs.readFileSync(simfile.selectedPath);
-      const checksum = crypto.createHash("md5").update(rawBytes).digest("hex");
+      const checksum = await hashFolder(songFolderPath, { isRecursive: true });
       const parsed = parseSimfile(simfile.selectedPath);
 
       if (parsed.parseError) {

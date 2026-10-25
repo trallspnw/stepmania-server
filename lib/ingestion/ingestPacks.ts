@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Pack } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { hashFolder } from "./folderChecksum";
 
 export type PackIngestResult = {
   created: number;
@@ -115,7 +116,7 @@ function deriveSortIndex(folderName: string): string | null {
   return digitMatch?.[1] ?? null;
 }
 
-function buildPackData(folderName: string, metadata: ParsedPackIni | null) {
+function buildPackData(folderName: string, metadata: ParsedPackIni | null, checksum: string) {
   const titles = metadata?.titles?.trim() || folderName;
 
   return {
@@ -128,6 +129,7 @@ function buildPackData(folderName: string, metadata: ParsedPackIni | null) {
     source: metadata?.source ?? null,
     isCustom: folderName.startsWith("9"),
     isCommunity: folderName.startsWith("8"),
+    checksum,
   };
 }
 
@@ -140,7 +142,8 @@ function hasPackChanged(existing: Pack, next: ReturnType<typeof buildPackData>) 
     existing.earliestRelease !== next.earliestRelease ||
     existing.source !== next.source ||
     existing.isCustom !== next.isCustom ||
-    existing.isCommunity !== next.isCommunity
+    existing.isCommunity !== next.isCommunity ||
+    existing.checksum !== next.checksum
   );
 }
 
@@ -171,14 +174,15 @@ export async function ingestPacks(songsDir: string): Promise<PackIngestResult> {
 
   for (const folderName of folderNames) {
     try {
-      const packIniPath = path.join(resolvedSongsDir, folderName, "pack.ini");
+      const packPath = path.join(resolvedSongsDir, folderName);
+      const packIniPath = path.join(packPath, "pack.ini");
       const metadata = parsePackIni(packIniPath);
 
       if (!metadata) {
         console.warn(`Pack metadata missing or unreadable for "${folderName}", ingesting folder only.`);
       }
 
-      const packData = buildPackData(folderName, metadata);
+      const packData = buildPackData(folderName, metadata, await hashFolder(packPath, { isRecursive: false }));
       const existing = existingByFolder.get(folderName);
 
       if (!existing) {

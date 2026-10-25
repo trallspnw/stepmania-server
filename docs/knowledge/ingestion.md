@@ -39,6 +39,7 @@ Primary fields:
 - `source`: provenance or source URL
 - `isCustom`: derived from `9*` folder prefixes
 - `isCommunity`: derived from `8*` folder prefixes
+- `checksum`: sha256 over the files directly in the pack folder (`pack.ini`, pack banner), recomputed on every ingestion
 
 Design notes:
 
@@ -63,7 +64,7 @@ Primary fields:
 - `sampleStart`, `sampleLength`
 - `filePath`: unique relative path such as `Pack Name/Song Title`
 - `simfileType`: chosen source file type, expected to be `ssc` or `sm`
-- `checksum`: content hash used to detect change
+- `checksum`: sha256 over every file in the song folder, recomputed on every ingestion; any changed file re-ingests the song. Recipe in `lib/ingestion/folderChecksum.ts`
 - `available`
 - `ingestFlags`: pipe-delimited ingest warnings or status flags
 - `lastScanned`
