@@ -244,31 +244,46 @@ export async function ingestSongs(
         continue;
       }
 
+      // Charts are reconciled in place rather than replaced, so chart ids stay stable.
+      // Play history and queue entries cascade-delete with their chart.
       const chartMutation = await prisma.$transaction(async (tx) => {
-        const deleted = await tx.chart.deleteMany({
-          where: { songId: existingSong.id },
-        });
-
         await tx.song.update({
           where: { id: existingSong.id },
           data: songData,
         });
 
-        const created =
-          chartRows.length > 0
-            ? await tx.chart.createMany({
-                data: chartRows.map((chart) => ({
-                  songId: existingSong.id,
-                  gameMode: chart.gameMode,
-                  difficultySlot: chart.difficultySlot,
-                  meter: chart.meter,
-                  author: chart.author,
-                  isPrimary: chart.isPrimary,
-                })),
-              })
+        const existingCharts = await tx.chart.findMany({
+          where: { songId: existingSong.id },
+          select: { id: true, gameMode: true, difficultySlot: true },
+        });
+        const existingChartIdsByKey = new Map(
+          existingCharts.map((chart) => [`${chart.gameMode}::${chart.difficultySlot}`, chart.id]),
+        );
+
+        let created = 0;
+        for (const chart of chartRows) {
+          const existingChartId = existingChartIdsByKey.get(`${chart.gameMode}::${chart.difficultySlot}`);
+          if (existingChartId === undefined) {
+            await tx.chart.create({ data: { songId: existingSong.id, ...chart } });
+            created += 1;
+            continue;
+          }
+
+          await tx.chart.update({
+            where: { id: existingChartId },
+            data: { meter: chart.meter, author: chart.author, isPrimary: chart.isPrimary },
+          });
+        }
+
+        const removedChartIds = existingCharts
+          .filter((chart) => !chartKeys.has(`${chart.gameMode}::${chart.difficultySlot}`))
+          .map((chart) => chart.id);
+        const deleted =
+          removedChartIds.length > 0
+            ? await tx.chart.deleteMany({ where: { id: { in: removedChartIds } } })
             : { count: 0 };
 
-        return { deleted: deleted.count, created: created.count };
+        return { deleted: deleted.count, created };
       });
 
       result.updated += 1;
