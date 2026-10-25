@@ -438,6 +438,28 @@ The response carries `ETag: "<library_checksum>"`. A request with a matching `If
 
 Missing or invalid token: `401` with an empty body.
 
+### `GET /api/game/library/songs/:songId/archive`
+
+Downloads one available song's folder as a zip. `songId` is `packs[].songs[].id` from the manifest.
+
+### `GET /api/game/library/packs/:packId/archive`
+
+Downloads the files directly in a pack folder (`pack.ini`, pack banner) as a zip, without its song folders. `packId` is `packs[].id` from the manifest.
+
+#### Archive format
+
+Both archive routes share this format:
+
+- `Content-Type: application/zip`, streamed with no `Content-Length`
+- Entry paths are relative to the song or pack folder, so they extract straight into the client's copy of it
+- Entries are stored, not compressed
+- Extracted files hash to the manifest `checksum` using the recipe in [`lib/ingestion/folderChecksum.ts`](../../lib/ingestion/folderChecksum.ts). A mismatch means the folder changed on disk since the last ingestion.
+
+#### Errors
+
+- Missing or invalid token: `401` with an empty body
+- Unknown or unavailable song, unknown pack, or folder missing on disk: `404` with `{ "error": "Song not found" }` or `{ "error": "Pack not found" }`
+
 ## History and High Score Semantics
 
 Play history is stored in `PlayHistory`.
