@@ -2,7 +2,7 @@
 
 This document describes the machine-facing HTTP API used by a cabinet or other trusted game client.
 
-These routes are authenticated with a machine bearer token and are implemented under [`app/api/game/song/`](../../app/api/game/song/).
+These routes are authenticated with a machine bearer token and are implemented under [`app/api/game/song/`](../../app/api/game/song/) and [`app/api/game/library/`](../../app/api/game/library/).
 
 ## Authentication
 
@@ -392,6 +392,51 @@ Missing current song:
 ```
 
 Status: `400`
+
+### `GET /api/game/library/manifest`
+
+Lists every pack with at least one available song, and each available song, with their checksums. Clients use it to decide which songs to download.
+
+Implemented in [`app/api/game/library/manifest/`](../../app/api/game/library/manifest/).
+
+#### Success
+
+```json
+{
+  "library_checksum": "9f2c…",
+  "packs": [
+    {
+      "id": 1,
+      "folder_name": "1Arc1998 - DDR",
+      "checksum": "375f…",
+      "songs": [
+        { "id": 1, "folder_name": "Butterfly", "checksum": "cd6f…" }
+      ]
+    }
+  ]
+}
+```
+
+#### Response fields
+
+- `library_checksum`
+  sha256 over the listed packs and songs. Changes whenever any pack or song is added, removed, or changed.
+- `packs[].checksum`
+  `Pack.checksum`: the files directly in the pack folder. `null` until the pack's first ingestion.
+- `packs[].songs[].folder_name`
+  The song folder inside the pack, so the song's path is `<pack folder_name>/<song folder_name>`
+- `packs[].songs[].checksum`
+  `Song.checksum`: every file in the song folder
+
+Packs and songs are sorted by folder name. Unavailable songs, and packs left with none, are omitted.
+
+#### Caching
+
+The response carries `ETag: "<library_checksum>"`. A request with a matching `If-None-Match` gets `304` with no body.
+
+#### Error
+
+Missing or invalid token: `401` with an empty body.
 
 ## History and High Score Semantics
 
