@@ -2,7 +2,7 @@
 
 This document describes the machine-facing HTTP API used by a cabinet or other trusted game client.
 
-These routes are authenticated with a machine bearer token and are implemented under [`app/api/game/song/`](../../app/api/game/song/) and [`app/api/game/library/`](../../app/api/game/library/).
+These routes are authenticated with a machine bearer token and are implemented under [`app/api/game/song/`](../app/api/game/song/) and [`app/api/game/library/`](../app/api/game/library/).
 
 ## Authentication
 
@@ -397,7 +397,7 @@ Status: `400`
 
 Lists every pack with at least one available song, and each available song, with their checksums. Clients use it to decide which songs to download.
 
-Implemented in [`app/api/game/library/manifest/`](../../app/api/game/library/manifest/).
+Implemented in [`app/api/game/library/manifest/`](../app/api/game/library/manifest/).
 
 #### Success
 
@@ -453,7 +453,7 @@ Both archive routes share this format:
 - `Content-Type: application/zip`, streamed with no `Content-Length`
 - Entry paths are relative to the song or pack folder, so they extract straight into the client's copy of it
 - Entries are stored, not compressed
-- Extracted files hash to the manifest `checksum` using the recipe in [`lib/ingestion/folderChecksum.ts`](../../lib/ingestion/folderChecksum.ts). A mismatch means the folder changed on disk since the last ingestion.
+- Extracted files hash to the manifest `checksum` using the recipe in [`lib/ingestion/folderChecksum.ts`](../lib/ingestion/folderChecksum.ts). A mismatch means the folder changed on disk since the last ingestion.
 
 #### Errors
 
@@ -491,10 +491,8 @@ Current behavior:
 - admin-triggered finish requests are forced to `test: true`
 - admin `History` tab can clear test-only history rows
 
-## Current Gaps
+## Limitations
 
-Known limitations at the time of writing:
-
-- `grade` accepts any non-empty string; there is no canonical grade validation yet
+- `grade` accepts any non-empty string; grades aren't validated against a fixed set
 - `skip` does not write any history
 - there is no separate machine heartbeat route; token `lastSeen` is updated opportunistically on authenticated machine requests

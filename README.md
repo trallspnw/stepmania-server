@@ -1,60 +1,51 @@
 # stepmania-server
 
-Next.js service for managing a queue of StepMania songs.
+Backend for a home StepMania/ITGmania setup: friends queue songs from their phones, and a cabinet running the [Simply-Love-Plus](https://github.com/trallspnw/Simply-Love-Plus) theme plays them in fair turn order and reports the scores.
 
-Current status:
+## Features
 
-- `docs/` is the canonical place for project knowledge, context, deployment notes, references, and planning docs.
-- The application scaffold lives at the repository root.
-- The current mobile-first UI prototype now lives in the main app at the repository root.
-- Docker deployment is supported for both local Compose usage and remote Compose managers such as Komodo.
+- **Player web app** (`/dashboard`, mobile-first): shared queue that round-robins across players; song library with search, packs, popular songs and audio previews; play history; profile. Accounts are invite-only, with a login name for signing in and a separate display name.
+- **Child profiles:** profiles without logins that any adult can switch to, so queued songs and history are credited to the child.
+- **Admin console** (`/admin`): library and ingestion, live queue, machine tokens and settings, users and invites, play history, and a test panel for the machine API.
+- **Machine API** for cabinets, authenticated with a machine token: the current queue song and its start/skip/finish lifecycle, plus a library manifest and song/pack downloads that let a cabinet sync its songs from the server. Contract: [`docs/machine-api.md`](./docs/machine-api.md).
 
-## Getting started
+Built with Next.js, Prisma, PostgreSQL and NextAuth.
+
+## Local development
 
 ```bash
+cp .env.example .env.local   # then set DATABASE_URL to localhost and a real NEXTAUTH_SECRET
 pnpm install
-pnpm dev
+pnpm deps:up                 # Postgres in Docker
+pnpm prisma:migrate:deploy
+pnpm dev                     # http://localhost:3000
 ```
 
-Use [`.env.example`](./.env.example) as the single env reference file.
+- A fresh database starts at `/setup`, which creates the first admin. After that, `/setup` is closed and sign-in is at `/login`.
+- `pnpm test:queue` runs the queue-ordering tests.
+- `pnpm db:reset:local` wipes the local database and reapplies the migrations.
 
-- For local app development outside Docker, copy it to `.env.local` and set `DATABASE_URL` as needed.
-- Set `NEXTAUTH_SECRET` in every environment. For production, use a long random secret.
-- Set `NEXTAUTH_URL` to the externally reachable app URL for the environment.
-- For Docker Compose overrides, copy it to `.env` beside `compose.yaml` and keep only the values you want Compose to read, such as `POSTGRES_DATA_DIR`.
-- When running `pnpm dev` on your host against the Compose Postgres container, use `localhost` in `.env.local` for `DATABASE_URL`.
+## Database migrations
 
-## Agents
+Prisma migrations are the source of truth for the schema.
 
-Project context and working documentation live under [`docs/`](./docs/).
+- Create one with `pnpm prisma:migrate:dev`, and commit it together with `prisma/schema.prisma` and the code that needs it.
+- Never edit a migration that has already been applied anywhere shared; add a new one.
+- Deployed containers run `prisma migrate deploy` on startup, so committed migrations apply automatically.
 
-Start with [`docs/README.md`](./docs/README.md) for the documentation structure, then use [`docs/index.md`](./docs/index.md) as the discovery index for knowledge, deployment notes, references, tasks, and plans.
+## Song library
 
-## Docker
+- Songs live in a folder set by `SONGS_DIR` (default `.data/Songs`), in the standard StepMania layout: `Pack/Song/files`. Each pack can carry a [`pack.ini`](./docs/pack-ini.md).
+- **Ingestion** (admin console → Library) scans the folder into packs, songs and charts. Run it after any change to the folder.
+  - It's idempotent: it updates what changed and marks songs whose folders are gone as unavailable, keeping their play history.
+  - Each song and pack gets a checksum over every file in its folder (`lib/ingestion/folderChecksum.ts`). A song is re-parsed only when its checksum changes, and cabinets use the same checksums to decide what to download.
+  - Charts are updated in place, so play history and queue entries survive re-ingestion.
 
-For local development or a local production-style smoke test, build and run from a clone of this repository with Docker Compose:
+## Deployment
 
-```bash
-docker compose up --build
-```
+The app ships as a Docker image (see `Dockerfile` and `compose.yaml`). `docker compose up --build` runs the app and Postgres locally on port 3000.
 
-The app will be available on `http://localhost:3000`.
-
-The stack now includes:
-
-- `stepmania-server`: Next.js app
-- `postgres`: PostgreSQL with a bind-mounted data directory
-
-The app connects through `DATABASE_URL`. A simple connection probe is available at `GET /api/health/db`.
-On container startup, the app runs `prisma migrate deploy` before booting the Next.js server.
-
-Compose reads `DATABASE_URL` from the environment with a default fallback, so you can explicitly override it in a stack `.env` file without editing `compose.yaml`.
-
-The checked-in [`compose.yaml`](./compose.yaml) uses `build.context: .`, which is intended for local use from a working copy of the repo.
-
-## Komodo
-
-For Komodo, use a remote Git build context instead of relying on a local checkout on the host. This is the current deployment approach:
+For a server, build from the Git repository instead of a local checkout:
 
 ```yaml
 services:
@@ -66,11 +57,17 @@ services:
       - "3011:3000"
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://stepmania:stepmania@postgres:5432/stepmania}
+      SONGS_DIR: /data/Songs
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: 3000
+    volumes:
+      - ${HOST_SONGS_DIR}:/data/Songs:ro
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
   postgres:
     image: postgres:17-alpine
@@ -78,47 +75,18 @@ services:
       POSTGRES_DB: stepmania
       POSTGRES_USER: stepmania
       POSTGRES_PASSWORD: stepmania
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     volumes:
       - ${POSTGRES_DATA_DIR:-./data/postgres}:/var/lib/postgresql/data
     restart: unless-stopped
 ```
 
-Notes:
-
-- The container listens on port `3000`; `3011:3000` publishes it on host port `3011`.
-- `HOSTNAME=0.0.0.0` is required so the Next.js server binds to the container interface.
-- `DATABASE_URL` is read from the environment with a Compose fallback. When both services run in the same stack, it should point at the Compose Postgres service name, not `localhost`.
-- `POSTGRES_DATA_DIR` can be set in a Compose `.env` file if you want to override the default `./data/postgres` bind mount.
-- If you change branches, update the `#main` suffix in the Git build context.
-
-The current prototype is still mostly frontend-only. The next steps are schema design, user data modeling, song directory ingestion, and replacing hardcoded mock data with real application state.
-
-## Auth Bootstrap
-
-The app now supports first-run bootstrap and login:
-
-- `GET /setup`: available only until the first admin user exists
-- `GET /login`: standard sign-in page after bootstrap
-- `GET /dashboard`: protected placeholder page after login
-- `GET /admin`: admin-only management surface for users and invites
-- Display names preserve entered casing for display, but login and uniqueness are case-insensitive
-
-Prisma setup commands:
-
-```bash
-pnpm db:reset:local
-pnpm prisma:generate
-pnpm prisma:migrate:dev
-pnpm prisma:migrate:deploy
-pnpm prisma:migrate:status
-pnpm prisma:studio
-```
-
-`pnpm db:reset:local` is for local testing only. It wipes the local Compose Postgres schema and reapplies committed Prisma migrations.
-
-Current admin scope:
-
-- Users tab supports role/status changes, password resets, and invite generation/revocation without full-page reloads.
-- Library and Queue tabs are placeholders.
-- Invite links support account creation with display name and password.
-- System tab supports machine token generation and revocation for trusted machine API access.
+- `HOSTNAME=0.0.0.0` makes Next.js listen on the container's interface.
+- `DATABASE_URL` should use the Compose service name (`postgres`), not `localhost`.
+- The song folder is mounted read-only; the app never writes to it.
+- The image is built from `main` at deploy time, so picking up new commits needs a rebuild, not just a restart. With Komodo, that's a Deploy with building enabled.
+- `GET /api/health/db` checks the database connection.
