@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
-import { InviteClaimForm } from "@/components/invite-claim-form";
+import { CreateAccountForm } from "@/components/create-account-form";
 import { getSessionUserRecord } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
@@ -70,7 +70,7 @@ export default async function InvitePage({ params, searchParams }: InvitePagePro
       heroTitle="Accept Invite"
       title="Create account"
     >
-      <InviteClaimForm action={`/api/invite/${id}`} error={getInviteError(paramsValue.error)} />
+      <CreateAccountForm action={`/api/invite/${id}`} error={getInviteError(paramsValue.error)} />
     </AuthShell>
   );
 }

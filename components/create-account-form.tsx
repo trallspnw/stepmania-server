@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Form that creates a password account, then signs the new user in. Posts to
+ * an invite claim or to open sign-up, whichever `action` names.
+ */
+
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -7,12 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-interface InviteClaimFormProps {
+interface CreateAccountFormProps {
   action: string;
   error?: string;
 }
 
-export function InviteClaimForm({ action, error }: InviteClaimFormProps) {
+export function CreateAccountForm({ action, error }: CreateAccountFormProps) {
   const [formError, setFormError] = useState(error);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -65,8 +70,11 @@ export function InviteClaimForm({ action, error }: InviteClaimFormProps) {
             case "invalid_invite":
               setFormError("This invite is invalid, expired, or has already been claimed.");
               break;
+            case "sign_up_closed":
+              setFormError("Sign-up is closed. Ask an administrator for an invite.");
+              break;
             default:
-              setFormError("Invite claim failed.");
+              setFormError("Account creation failed.");
           }
 
           setIsSubmitting(false);

@@ -1,34 +1,21 @@
 import bcrypt from "bcrypt";
 import { NextResponse } from "next/server";
+import { getNameTakenError, readNewAccountFields } from "@/lib/new-account";
 import { prisma } from "@/lib/prisma";
-import {
-  getTakenIdentityField,
-  normalizeDisplayName,
-  normalizeLoginName,
-} from "@/lib/users";
+import { normalizeDisplayName, normalizeLoginName } from "@/lib/users";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const body = await request.json().catch(() => null);
-  const loginName = String(body?.loginName ?? "").trim();
-  const displayName = String(body?.displayName ?? "").trim();
-  const password = String(body?.password ?? "");
-  const confirmPassword = String(body?.confirmPassword ?? "");
+  const result = readNewAccountFields(await request.json().catch(() => null));
 
-  if (!loginName || !displayName || !password || !confirmPassword) {
-    return NextResponse.json({ error: "missing_fields" }, { status: 400 });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  if (password.length < 8) {
-    return NextResponse.json({ error: "password_too_short" }, { status: 400 });
-  }
-
-  if (password !== confirmPassword) {
-    return NextResponse.json({ error: "password_mismatch" }, { status: 400 });
-  }
+  const { loginName, displayName, password } = result.fields;
 
   let redirectTo = "/dashboard";
 
@@ -70,14 +57,10 @@ export async function POST(
       return NextResponse.json({ error: "invalid_invite" }, { status: 400 });
     }
 
-    const takenField = getTakenIdentityField(error);
+    const nameTakenError = getNameTakenError(error);
 
-    if (takenField === "login") {
-      return NextResponse.json({ error: "login_name_taken" }, { status: 409 });
-    }
-
-    if (takenField === "display") {
-      return NextResponse.json({ error: "display_name_taken" }, { status: 409 });
+    if (nameTakenError) {
+      return NextResponse.json({ error: nameTakenError }, { status: 409 });
     }
 
     throw error;

@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
 import { LoginForm } from "@/components/login-form";
 import { getSessionUserRecord } from "@/lib/admin";
+import { isOpenSignUpEnabled } from "@/lib/sign-up";
 import { hasAdminUser } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,7 @@ export default async function LoginPage({
   }
 
   const params = await searchParams;
+  const isSignUpOpen = await isOpenSignUpEnabled();
 
   return (
     <AuthShell
@@ -40,6 +43,14 @@ export default async function LoginPage({
       title="Login"
     >
       <LoginForm error={getLoginError(params.error)} />
+      {isSignUpOpen ? (
+        <p className="mt-5 text-center text-sm text-stone-600">
+          New here?{" "}
+          <Link className="font-medium text-amber-700 underline" href="/signup">
+            Create an account
+          </Link>
+        </p>
+      ) : null}
     </AuthShell>
   );
 }
