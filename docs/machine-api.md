@@ -34,6 +34,14 @@ Current behavior:
 - `skip` removes the current queue head and advances
 - `finish` records play history, removes the current queue head, and advances
 
+Two players:
+
+- side 1 is the queue entry's owner; side 2 is the player who joined it from the web queue, if any
+- joins are possible only while the entry is `queued`; `start` fixes the players
+- `start` keeps side 2 only if the cabinet lists it in `players`; otherwise the join is dropped
+- `finish` records one play per reported side, but only for sides that started; other sides' results are ignored
+- requests without `players` / `results` are one-player requests for side 1, so older cabinet themes keep working
+
 ## Routes
 
 ### `GET /api/game/song/current`
@@ -129,6 +137,8 @@ Returns the current song context for the machine.
   Best recorded score for the current player on that chart
 - `chart_highscores[].server_highscore`
   Best recorded score for any player on that chart, including `held_by`
+- `players`
+  One record per side: side 1 (the owner) always, side 2 (the joiner) when someone joined. Empty when there's no current song. Each record has `side`, `player`, the side's queued `chart_id` and `difficulty_name`, `user_highscore` and `server_highscore` on that chart, and `chart_highscores` with that player's records on every chart. The top-level `player`, `user_highscore`, `server_highscore` and `chart_highscores` stay side 1's.
 
 #### Notes
 
@@ -151,12 +161,26 @@ This route is idempotent for the current queue head. If the current entry is alr
 }
 ```
 
+Two players:
+
+```json
+{
+  "queue_item_id": 42,
+  "players": [
+    { "side": 1, "chart_id": 1002 },
+    { "side": 2, "chart_id": 1001 }
+  ]
+}
+```
+
 #### Request field rules
 
 - `queue_item_id`
   Required positive integer. It must match the current queue head or the request fails with `400` and no state change occurs.
 - `chart_id`
-  Required positive integer. It must belong to the queued song and the queued chart mode. Use one of the `chart_highscores[].chart_id` values from `GET /api/game/song/current`.
+  Side 1's chart. Required unless `players` lists side 1. It must belong to the queued song and the queued chart mode. Use one of the `chart_highscores[].chart_id` values from `GET /api/game/song/current`.
+- `players`
+  Optional list of the sides playing on the cabinet, each `{ "side": 1 | 2, "chart_id" }`, one per side. Side 2 is started only if someone is still joined; otherwise it's ignored. Leaving side 2 out drops the join. Once the entry is `playing`, repeat starts don't change the players.
 
 #### Success
 
@@ -181,7 +205,21 @@ This route is idempotent for the current queue head. If the current entry is alr
     "score": 99.12,
     "grade": "AAA",
     "held_by": "Alex"
-  }
+  },
+  "players": [ ... ]
+}
+```
+
+`players` lists the sides that started, one record per side:
+
+```json
+{
+  "side": 2,
+  "player": { "id": 15, "display_name": "Sam" },
+  "chart_id": 1001,
+  "difficulty_name": "Easy",
+  "user_highscore": { "score": 91.02, "grade": "A" },
+  "server_highscore": { "score": 95.12, "grade": "A", "held_by": "Alex" }
 }
 ```
 
@@ -301,6 +339,18 @@ Records a completed play and advances the queue/current-song state.
 }
 ```
 
+Two players (`results` replaces the top-level `score`, `grade` and `chart_id`):
+
+```json
+{
+  "queue_item_id": 42,
+  "results": [
+    { "side": 1, "chart_id": 1002, "score": 97.43, "grade": "AA" },
+    { "side": 2, "chart_id": 1001, "score": 91.02, "grade": "A" }
+  ]
+}
+```
+
 Optional test payload:
 
 ```json
@@ -325,6 +375,8 @@ Optional test payload:
   Optional boolean. When `true`, the resulting `PlayHistory` row is marked as test data
 - `queue_item_id`
   Required positive integer. It must match the current queue head or the request fails with `400` and no state change occurs.
+- `results`
+  Optional list of results, one per side: `{ "side": 1 | 2, "chart_id", "score", "grade" }`, each following the rules above. Without it, the top-level `score`, `grade` and `chart_id` are side 1's result. A side that didn't start is skipped.
 
 #### Success
 
@@ -345,9 +397,13 @@ Optional test payload:
     "queue_item_id": 43,
     "file_path": "1Arc2008 - DDR X/Paranoia",
     "difficulty_name": "Challenge"
-  }
+  },
+  "results": [ ... ]
 }
 ```
+
+- `results` has one record per recorded side, in the same shape as `start`'s `players`, with the records after this play.
+- `user_highscore` and `server_highscore` are side 1's; `recorded` is `false` if no side was recorded.
 
 If `queue_item_id` does not match the active queue head:
 

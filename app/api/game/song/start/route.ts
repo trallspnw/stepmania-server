@@ -1,7 +1,34 @@
 import { NextResponse } from "next/server";
+import { getSideRecord, readChartId, readSide } from "@/lib/machine-players";
 import { validateMachineToken } from "@/lib/machineAuth";
 import { getServerHighScore, getUserHighScore } from "@/lib/play-history";
 import { startCurrentQueueEntryWithExpectedIdAndDifficulty } from "@/lib/queue-server";
+
+/**
+ * Reads the optional `players: [{ side, chart_id }]` list: the sides playing
+ * on the cabinet. Returns null if it's malformed or lists a side twice.
+ */
+function readStartPlayers(value: unknown) {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const players = value.map((player) => ({
+    side: readSide(player?.side),
+    chartId: readChartId(player?.chart_id),
+  }));
+  const sides = new Set(players.map((player) => player.side));
+
+  if (players.some((player) => player.side === null || player.chartId === null) || sides.size !== players.length) {
+    return null;
+  }
+
+  return players as { side: 1 | 2; chartId: number }[];
+}
 
 export async function POST(request: Request) {
   const machineToken = await validateMachineToken(request);
@@ -12,7 +39,17 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const queueItemId = Number(body?.queue_item_id);
-  const chartId = Number(body?.chart_id);
+  const startPlayers = readStartPlayers(body?.players);
+
+  if (startPlayers === null) {
+    return NextResponse.json(
+      { error: "players must be a list of { side: 1 or 2, chart_id }, one per side" },
+      { status: 400 },
+    );
+  }
+
+  const chartId = startPlayers.find((player) => player.side === 1)?.chartId ?? Number(body?.chart_id);
+  const sideTwoChartId = startPlayers.find((player) => player.side === 2)?.chartId ?? null;
 
   if (!Number.isInteger(queueItemId) || queueItemId <= 0) {
     console.info("[machine] game.song.start", {
@@ -39,6 +76,7 @@ export async function POST(request: Request) {
   const startedEntry = await startCurrentQueueEntryWithExpectedIdAndDifficulty({
     expectedQueueEntryId: queueItemId,
     chartId,
+    sideTwoChartId,
   });
 
   if (startedEntry.status === "missing") {
@@ -88,6 +126,13 @@ export async function POST(request: Request) {
     );
   }
 
+  const { entry, playedChart } = startedEntry;
+  const startedSides = await Promise.all([
+    getSideRecord(entry.song.id, { side: 1, user: entry.user, chart: playedChart }),
+    ...(entry.joinedUser && entry.joinedChart
+      ? [getSideRecord(entry.song.id, { side: 2, user: entry.joinedUser, chart: entry.joinedChart })]
+      : []),
+  ]);
   const [userHighScore, serverHighScore] = await Promise.all([
     getUserHighScore({
       songId: startedEntry.entry.song.id,
@@ -111,6 +156,7 @@ export async function POST(request: Request) {
     chartId: startedEntry.playedChart.id,
     queuedDifficultyName: startedEntry.entry.chart.difficultySlot,
     playedDifficultyName: startedEntry.playedChart.difficultySlot,
+    sides: startedSides.length,
   });
 
   return NextResponse.json({
@@ -127,5 +173,6 @@ export async function POST(request: Request) {
     },
     user_highscore: userHighScore,
     server_highscore: serverHighScore,
+    players: startedSides,
   });
 }
