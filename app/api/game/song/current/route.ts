@@ -3,6 +3,7 @@
 //   -H "Authorization: Bearer {your_token}"
 
 import { NextResponse } from "next/server";
+import { getQueuedSideRecord } from "@/lib/machine-players";
 import { validateMachineToken } from "@/lib/machineAuth";
 import {
   getChartHighScoresForSong,
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
       player: null,
       user_highscore: null,
       server_highscore: null,
+      players: [],
     });
   }
 
@@ -68,11 +70,28 @@ export async function GET(request: Request) {
     }),
   ]);
 
+  const queuedSong = {
+    id: currentQueueEntry.song.id,
+    gameMode: currentQueueEntry.chart.gameMode,
+  };
+  const { joinedUser, joinedChart } = currentQueueEntry;
+  const players = await Promise.all([
+    getQueuedSideRecord(queuedSong, {
+      side: 1,
+      user: currentQueueEntry.user,
+      chart: currentQueueEntry.chart,
+    }),
+    ...(joinedUser && joinedChart
+      ? [getQueuedSideRecord(queuedSong, { side: 2, user: joinedUser, chart: joinedChart })]
+      : []),
+  ]);
+
   console.info("[machine] game.song.current.read", {
     machineTokenId: machineToken.id,
     machineTokenName: machineToken.name,
     status: 200,
     hasSong: true,
+    sides: players.length,
     songPath,
     difficulty,
     playerId: activePlayer?.id ?? null,
@@ -88,5 +107,6 @@ export async function GET(request: Request) {
     user_highscore: userHighScore,
     server_highscore: serverHighScore,
     chart_highscores: chartHighScores,
+    players,
   });
 }

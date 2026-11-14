@@ -530,9 +530,49 @@ export async function startCurrentQueueEntryWithExpectedId(expectedQueueEntryId:
   });
 }
 
+type PlayableChart = {
+  id: number;
+  songId: number;
+  gameMode: string;
+  difficultySlot: string;
+  meter: number;
+};
+
+/** The chart, if it belongs to the entry's song in the entry's game mode. */
+async function findPlayableChart(
+  tx: QueueDbClient,
+  entry: QueueEntryWithRelations,
+  chartId: number,
+): Promise<PlayableChart | null> {
+  const chart = await tx.chart.findUnique({
+    where: {
+      id: chartId,
+    },
+    select: {
+      id: true,
+      songId: true,
+      gameMode: true,
+      difficultySlot: true,
+      meter: true,
+    },
+  });
+
+  if (!chart || chart.songId !== entry.song.id || chart.gameMode !== entry.chart.gameMode) {
+    return null;
+  }
+
+  return chart;
+}
+
+/**
+ * Marks the current entry as playing. The players are fixed at this point:
+ * side 2 stays joined, on `sideTwoChartId`, only if the cabinet started it;
+ * otherwise the join is dropped. Repeat starts of a playing entry change nothing.
+ */
 export async function startCurrentQueueEntryWithExpectedIdAndDifficulty(input: {
   expectedQueueEntryId: number;
   chartId: number;
+  sideTwoChartId: number | null;
 }) {
   return prisma.$transaction(async (tx) => {
     const currentEntry = await getCurrentQueueEntryInTx(tx);
@@ -550,24 +590,11 @@ export async function startCurrentQueueEntryWithExpectedIdAndDifficulty(input: {
       };
     }
 
-    const playedChart = await tx.chart.findUnique({
-      where: {
-        id: input.chartId,
-      },
-      select: {
-        id: true,
-        songId: true,
-        gameMode: true,
-        difficultySlot: true,
-        meter: true,
-      },
-    });
+    const playedChart = await findPlayableChart(tx, currentEntry, input.chartId);
+    const sideTwoChart =
+      input.sideTwoChartId === null ? null : await findPlayableChart(tx, currentEntry, input.sideTwoChartId);
 
-    if (
-      !playedChart ||
-      playedChart.songId !== currentEntry.song.id ||
-      playedChart.gameMode !== currentEntry.chart.gameMode
-    ) {
+    if (!playedChart || (input.sideTwoChartId !== null && !sideTwoChart)) {
       return {
         status: "invalid_chart" as const,
         current: currentEntry,
@@ -575,29 +602,36 @@ export async function startCurrentQueueEntryWithExpectedIdAndDifficulty(input: {
       };
     }
 
-    if (currentEntry.status !== "playing") {
-      await tx.queueEntry.update({
-        where: {
-          id: currentEntry.id,
-        },
-        data: {
-          status: "playing" satisfies QueueStatus,
-        },
-      });
-
+    if (currentEntry.status === "playing") {
       return {
         status: "started" as const,
-        entry: {
-          ...currentEntry,
-          status: "playing",
-        },
+        entry: currentEntry,
         playedChart,
       };
     }
 
+    const startedSideTwoChart = currentEntry.joinedUser !== null ? sideTwoChart : null;
+
+    await tx.queueEntry.update({
+      where: {
+        id: currentEntry.id,
+      },
+      data: {
+        status: "playing" satisfies QueueStatus,
+        ...(startedSideTwoChart
+          ? { joinedChartId: startedSideTwoChart.id }
+          : { joinedUserId: null, joinedChartId: null, joinedAt: null }),
+      },
+    });
+
     return {
       status: "started" as const,
-      entry: currentEntry,
+      entry: {
+        ...currentEntry,
+        status: "playing",
+        joinedUser: startedSideTwoChart ? currentEntry.joinedUser : null,
+        joinedChart: startedSideTwoChart,
+      },
       playedChart,
     };
   });
@@ -635,12 +669,22 @@ export async function consumeCurrentQueueEntryWithExpectedId(expectedQueueEntryI
   });
 }
 
-export async function finishCurrentQueueEntry(input: {
+export type SideResultInput = {
+  side: 1 | 2;
+  chartId: number;
   score: number;
   grade: string;
+};
+
+/**
+ * Records one play per reported side, then removes the current entry. Side 1
+ * is the entry's owner. Side 2 is the joiner, recorded only if the cabinet
+ * started side 2; otherwise its result is skipped.
+ */
+export async function finishCurrentQueueEntry(input: {
+  results: SideResultInput[];
   isTest?: boolean;
   expectedQueueEntryId: number;
-  chartId: number;
 }) {
   return prisma.$transaction(async (tx) => {
     const currentEntry = await getCurrentQueueEntryInTx(tx);
@@ -658,41 +702,38 @@ export async function finishCurrentQueueEntry(input: {
       };
     }
 
-    const playedChart = await tx.chart.findUnique({
-      where: {
-        id: input.chartId,
-      },
-      select: {
-        id: true,
-        songId: true,
-        gameMode: true,
-        difficultySlot: true,
-        meter: true,
-      },
-    });
+    const recordedSides: { side: 1 | 2; user: QueueUser; playedChart: PlayableChart }[] = [];
 
-    if (
-      !playedChart ||
-      playedChart.songId !== currentEntry.song.id ||
-      playedChart.gameMode !== currentEntry.chart.gameMode
-    ) {
-      return {
-        status: "invalid_chart" as const,
-        current: currentEntry,
-        chartId: input.chartId,
-      };
+    for (const result of input.results) {
+      const playedChart = await findPlayableChart(tx, currentEntry, result.chartId);
+
+      if (!playedChart) {
+        return {
+          status: "invalid_chart" as const,
+          current: currentEntry,
+          chartId: result.chartId,
+        };
+      }
+
+      const user = result.side === 1 ? currentEntry.user : currentEntry.joinedUser;
+
+      if (!user) {
+        continue;
+      }
+
+      await tx.playHistory.create({
+        data: {
+          songId: currentEntry.song.id,
+          chartId: playedChart.id,
+          userId: user.id,
+          score: result.score,
+          grade: result.grade,
+          isTest: input.isTest ?? false,
+        },
+      });
+
+      recordedSides.push({ side: result.side, user, playedChart });
     }
-
-    await tx.playHistory.create({
-      data: {
-        songId: currentEntry.song.id,
-        chartId: playedChart.id,
-        userId: currentEntry.user.id,
-        score: input.score,
-        grade: input.grade,
-        isTest: input.isTest ?? false,
-      },
-    });
 
     await tx.queueEntry.delete({
       where: {
@@ -704,7 +745,7 @@ export async function finishCurrentQueueEntry(input: {
     return {
       status: "finished" as const,
       removed: currentEntry,
-      playedChart,
+      recordedSides,
       next: nextEntry,
     };
   });
