@@ -8,35 +8,36 @@ datasource db {
 }
 
 model User {
-  id                    Int      @id @default(autoincrement())
-  loginName             String?  @map("login_name")
-  loginNameNormalized   String?  @unique @map("login_name_normalized")
-  displayName           String   @map("display_name")
-  displayNameNormalized String   @unique @map("display_name_normalized")
-  passwordHash          String?  @map("password_hash")
-  isAdmin               Boolean  @default(false) @map("is_admin")
-  isActive              Boolean  @default(true) @map("is_active")
-  isChild               Boolean  @default(false) @map("is_child")
-  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  createdInvites        Invite[] @relation("CreatedInvites")
-  claimedInvites        Invite[] @relation("ClaimedInvites")
+  id                    Int            @id @default(autoincrement())
+  loginName             String?        @map("login_name")
+  loginNameNormalized   String?        @unique @map("login_name_normalized")
+  displayName           String         @map("display_name")
+  displayNameNormalized String         @unique @map("display_name_normalized")
+  passwordHash          String?        @map("password_hash")
+  isAdmin               Boolean        @default(false) @map("is_admin")
+  isActive              Boolean        @default(true) @map("is_active")
+  isChild               Boolean        @default(false) @map("is_child")
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdInvites        Invite[]       @relation("CreatedInvites")
+  claimedInvites        Invite[]       @relation("ClaimedInvites")
   createdTokens         MachineToken[] @relation("CreatedTokens")
-  playHistory           PlayHistory[] @relation("PlayHistory")
-  queueEntries          QueueEntry[]
+  playHistory           PlayHistory[]  @relation("PlayHistory")
+  queueEntries          QueueEntry[]   @relation("QueueEntryOwner")
+  joinedQueueEntries    QueueEntry[]   @relation("QueueEntryJoiner")
 
   @@map("users")
 }
 
 model Invite {
-  id          String   @id
-  createdBy   Int      @map("created_by")
-  creator     User     @relation("CreatedInvites", fields: [createdBy], references: [id], onDelete: Cascade)
-  claimedBy   Int?     @map("claimed_by")
-  claimer     User?    @relation("ClaimedInvites", fields: [claimedBy], references: [id], onDelete: Cascade)
-  roleIsAdmin Boolean  @default(false) @map("role_is_admin")
-  expiresAt   DateTime @map("expires_at") @db.Timestamptz(6)
+  id          String    @id
+  createdBy   Int       @map("created_by")
+  creator     User      @relation("CreatedInvites", fields: [createdBy], references: [id], onDelete: Cascade)
+  claimedBy   Int?      @map("claimed_by")
+  claimer     User?     @relation("ClaimedInvites", fields: [claimedBy], references: [id], onDelete: Cascade)
+  roleIsAdmin Boolean   @default(false) @map("role_is_admin")
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(6)
   claimedAt   DateTime? @map("claimed_at") @db.Timestamptz(6)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@map("invites")
 }
@@ -113,17 +114,18 @@ model Song {
 }
 
 model Chart {
-  id             Int      @id @default(autoincrement())
-  songId         Int      @map("song_id")
-  song           Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
-  gameMode       String   @map("game_mode")
-  difficultySlot String   @map("difficulty_slot")
-  meter          Int
-  author         String?
-  isPrimary      Boolean  @default(false) @map("is_primary")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  queueEntries   QueueEntry[]
-  playHistory    PlayHistory[]
+  id                 Int           @id @default(autoincrement())
+  songId             Int           @map("song_id")
+  song               Song          @relation(fields: [songId], references: [id], onDelete: Cascade)
+  gameMode           String        @map("game_mode")
+  difficultySlot     String        @map("difficulty_slot")
+  meter              Int
+  author             String?
+  isPrimary          Boolean       @default(false) @map("is_primary")
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  queueEntries       QueueEntry[]  @relation("QueueEntryChart")
+  joinedQueueEntries QueueEntry[]  @relation("QueueEntryJoinedChart")
+  playHistory        PlayHistory[]
 
   @@unique([songId, gameMode, difficultySlot])
   @@map("charts")
@@ -146,17 +148,23 @@ model PlayHistory {
 }
 
 model QueueEntry {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  songId    Int      @map("song_id")
-  song      Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
-  chartId   Int      @map("chart_id")
-  chart     Chart    @relation(fields: [chartId], references: [id], onDelete: Cascade)
-  status    String   @default("queued")
-  playOrder Int      @map("play_order")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id            Int       @id @default(autoincrement())
+  userId        Int       @map("user_id")
+  user          User      @relation("QueueEntryOwner", fields: [userId], references: [id], onDelete: Cascade)
+  songId        Int       @map("song_id")
+  song          Song      @relation(fields: [songId], references: [id], onDelete: Cascade)
+  chartId       Int       @map("chart_id")
+  chart         Chart     @relation("QueueEntryChart", fields: [chartId], references: [id], onDelete: Cascade)
+  /// Second player (P2) playing along on the owner's entry; set by a join from the web queue.
+  joinedUserId  Int?      @map("joined_user_id")
+  joinedUser    User?     @relation("QueueEntryJoiner", fields: [joinedUserId], references: [id], onDelete: SetNull)
+  joinedChartId Int?      @map("joined_chart_id")
+  joinedChart   Chart?    @relation("QueueEntryJoinedChart", fields: [joinedChartId], references: [id], onDelete: SetNull)
+  joinedAt      DateTime? @map("joined_at") @db.Timestamptz(6)
+  status        String    @default("queued")
+  playOrder     Int       @map("play_order")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([status, playOrder])
   @@index([userId, status, createdAt])

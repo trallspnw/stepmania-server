@@ -52,6 +52,8 @@ interface AppContextValue {
   refreshHistory: (options?: { silent?: boolean }) => Promise<void>;
   addToQueue: (songId: number, chartId: number) => Promise<boolean>;
   removeFromQueue: (entryId: number) => Promise<boolean>;
+  joinQueueEntry: (entryId: number, chartId: number) => Promise<string | null>;
+  leaveQueueEntry: (entryId: number) => Promise<boolean>;
   signOut: () => void;
 }
 
@@ -235,6 +237,43 @@ export function AppProvider({
         });
 
         if (!response.ok) {
+          return false;
+        }
+
+        const data = (await response.json()) as QueueResponse;
+        setQueueEntries(data.entries);
+        setQueueError(null);
+        return true;
+      },
+      joinQueueEntry: async (entryId, chartId) => {
+        const response = await fetch(`/api/queue/${entryId}/join`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ chartId }),
+        });
+
+        if (!response.ok) {
+          const data = (await response.json().catch(() => ({}))) as { error?: string };
+          void refreshQueue({ silent: true });
+          return data.error ?? "Failed to join song.";
+        }
+
+        const data = (await response.json()) as QueueResponse;
+        setQueueEntries(data.entries);
+        setQueueError(null);
+        return null;
+      },
+      leaveQueueEntry: async (entryId) => {
+        const response = await fetch(`/api/queue/${entryId}/join`, {
+          method: "DELETE",
+          credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+          void refreshQueue({ silent: true });
           return false;
         }
 

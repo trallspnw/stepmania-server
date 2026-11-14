@@ -1,11 +1,24 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { normalizeDifficultySlot } from "@/lib/library-browser";
 import { insertIntoActiveQueueOrder } from "@/lib/queue-order";
-import type { QueueEntryRecord } from "@/lib/queue-types";
+import type { QueueChartRecord, QueueEntryRecord } from "@/lib/queue-types";
 import { prisma } from "@/lib/prisma";
 
 type QueueDbClient = Prisma.TransactionClient | PrismaClient;
 type QueueStatus = "queued" | "playing";
+
+type QueueChart = {
+  id: number;
+  gameMode: string;
+  difficultySlot: string;
+  meter: number;
+};
+
+type QueueUser = {
+  id: number;
+  displayName: string;
+  isChild: boolean;
+};
 
 type QueueEntryWithRelations = {
   id: number;
@@ -15,24 +28,30 @@ type QueueEntryWithRelations = {
   status: string;
   playOrder: number;
   createdAt: Date;
-  user: {
-    id: number;
-    displayName: string;
-    isChild: boolean;
-  };
+  user: QueueUser;
   song: {
     id: number;
     title: string;
     artist: string | null;
     filePath: string;
   };
-  chart: {
-    id: number;
-    gameMode: string;
-    difficultySlot: string;
-    meter: number;
-  };
+  chart: QueueChart;
+  joinedUser: QueueUser | null;
+  joinedChart: QueueChart | null;
 };
+
+const QUEUE_USER_SELECT = {
+  id: true,
+  displayName: true,
+  isChild: true,
+} as const;
+
+const QUEUE_CHART_SELECT = {
+  id: true,
+  gameMode: true,
+  difficultySlot: true,
+  meter: true,
+} as const;
 
 function sortQueueEntries<T extends { status: string; playOrder: number; createdAt: Date; id: number }>(
   entries: T[],
@@ -57,7 +76,28 @@ function sortQueueEntries<T extends { status: string; playOrder: number; created
   });
 }
 
+function mapQueueChart(chart: QueueChart): QueueChartRecord {
+  return {
+    id: chart.id,
+    difficultySlot: normalizeDifficultySlot(chart.difficultySlot),
+    meter: chart.meter,
+  };
+}
+
+/**
+ * Who may remove a player from the queue (the owner's entry or a join):
+ * admins, the player themselves, and anyone for a child profile.
+ */
+function canManagePlayer(player: QueueUser, userId: number, isAdmin: boolean) {
+  return isAdmin || player.id === userId || player.isChild;
+}
+
 function mapQueueEntry(entry: QueueEntryWithRelations, userId: number, isAdmin: boolean): QueueEntryRecord {
+  const isQueued = entry.status !== "playing";
+  const joinedUser = entry.joinedUser;
+  const joinedChart = entry.joinedChart;
+  const hasJoin = joinedUser !== null && joinedChart !== null;
+
   return {
     id: entry.id,
     status: entry.status === "playing" ? "playing" : "queued",
@@ -72,12 +112,19 @@ function mapQueueEntry(entry: QueueEntryWithRelations, userId: number, isAdmin: 
       title: entry.song.title,
       artist: entry.song.artist?.trim() || "-",
     },
-    chart: {
-      id: entry.chart.id,
-      difficultySlot: normalizeDifficultySlot(entry.chart.difficultySlot),
-      meter: entry.chart.meter,
-    },
-    canRemove: isAdmin || entry.user.id === userId || entry.user.isChild,
+    chart: mapQueueChart(entry.chart),
+    joined: hasJoin
+      ? {
+          user: {
+            id: joinedUser.id,
+            displayName: joinedUser.displayName,
+          },
+          chart: mapQueueChart(joinedChart),
+        }
+      : null,
+    canRemove: canManagePlayer(entry.user, userId, isAdmin),
+    canJoin: isQueued && !hasJoin && entry.user.id !== userId,
+    canLeave: isQueued && hasJoin && canManagePlayer(joinedUser, userId, isAdmin),
   };
 }
 
@@ -90,11 +137,7 @@ async function getQueueEntriesWithRelations(tx: QueueDbClient): Promise<QueueEnt
     },
     include: {
       user: {
-        select: {
-          id: true,
-          displayName: true,
-          isChild: true,
-        },
+        select: QUEUE_USER_SELECT,
       },
       song: {
         select: {
@@ -105,12 +148,13 @@ async function getQueueEntriesWithRelations(tx: QueueDbClient): Promise<QueueEnt
         },
       },
       chart: {
-        select: {
-          id: true,
-          gameMode: true,
-          difficultySlot: true,
-          meter: true,
-        },
+        select: QUEUE_CHART_SELECT,
+      },
+      joinedUser: {
+        select: QUEUE_USER_SELECT,
+      },
+      joinedChart: {
+        select: QUEUE_CHART_SELECT,
       },
     },
   });
@@ -335,6 +379,116 @@ export async function removeQueueEntry(input: {
     await tx.queueEntry.delete({
       where: {
         id: entry.id,
+      },
+    });
+  });
+}
+
+/**
+ * Joins a player to another player's queued entry as P2, with their own chart
+ * of the same song. Joins don't use a turn or change the queue order, and are
+ * fixed once the cabinet starts the song.
+ */
+export async function joinQueueEntry(input: {
+  entryId: number;
+  joinerUserId: number;
+  chartId: number;
+}) {
+  await prisma.$transaction(async (tx) => {
+    const entry = await tx.queueEntry.findUnique({
+      where: {
+        id: input.entryId,
+      },
+      select: {
+        id: true,
+        userId: true,
+        songId: true,
+        status: true,
+        joinedUserId: true,
+      },
+    });
+
+    if (!entry) {
+      throw new Error("Queue entry not found.");
+    }
+
+    if (entry.status !== "queued") {
+      throw new Error("This song has already started.");
+    }
+
+    if (entry.userId === input.joinerUserId) {
+      throw new Error("You can't join your own song.");
+    }
+
+    if (entry.joinedUserId !== null && entry.joinedUserId !== input.joinerUserId) {
+      throw new Error("Someone has already joined this song.");
+    }
+
+    const chart = await tx.chart.findUnique({
+      where: {
+        id: input.chartId,
+      },
+      select: {
+        songId: true,
+      },
+    });
+
+    if (!chart || chart.songId !== entry.songId) {
+      throw new Error("Chart does not belong to song.");
+    }
+
+    await tx.queueEntry.update({
+      where: {
+        id: entry.id,
+      },
+      data: {
+        joinedUserId: input.joinerUserId,
+        joinedChartId: input.chartId,
+        joinedAt: new Date(),
+      },
+    });
+  });
+}
+
+export async function leaveQueueEntry(input: {
+  entryId: number;
+  requesterUserId: number;
+  requesterIsAdmin: boolean;
+}) {
+  await prisma.$transaction(async (tx) => {
+    const entry = await tx.queueEntry.findUnique({
+      where: {
+        id: input.entryId,
+      },
+      select: {
+        id: true,
+        status: true,
+        joinedUser: {
+          select: QUEUE_USER_SELECT,
+        },
+      },
+    });
+
+    if (!entry || !entry.joinedUser) {
+      throw new Error("Queue entry not found.");
+    }
+
+    if (entry.status !== "queued") {
+      throw new Error("This song has already started.");
+    }
+
+    if (!canManagePlayer(entry.joinedUser, input.requesterUserId, input.requesterIsAdmin)) {
+      throw new Error("Forbidden");
+    }
+
+    await tx.queueEntry.update({
+      where: {
+        id: entry.id,
+      },
+      data: {
+        joinedUserId: null,
+        joinedChartId: null,
+        joinedAt: null,
       },
     });
   });

@@ -8,10 +8,16 @@ import { BrowseDifficulty, BrowseSongRecord, getDifficultyTone } from "@/lib/lib
 interface SongDetailSheetProps {
   song: BrowseSongRecord | null;
   onClose: () => void;
+  /** Set to join this queue entry as P2 instead of adding the song to the queue. */
+  joinEntryId?: number;
+  /** Chart to select when the sheet opens; defaults to the first difficulty. */
+  initialChartId?: number;
 }
 
-export function SongDetailSheet({ song, onClose }: SongDetailSheetProps) {
-  const { addToQueue } = useApp();
+export function SongDetailSheet({ song, onClose, joinEntryId, initialChartId }: SongDetailSheetProps) {
+  const { addToQueue, joinQueueEntry } = useApp();
+  const isJoinMode = joinEntryId !== undefined;
+  const [actionError, setActionError] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<BrowseDifficulty | null>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [bannerSrc, setBannerSrc] = useState<string | null>(null);
@@ -41,8 +47,13 @@ export function SongDetailSheet({ song, onClose }: SongDetailSheetProps) {
   }
 
   useEffect(() => {
-    setSelectedDifficulty(song?.difficulties[0] ?? null);
-  }, [song?.id]);
+    setSelectedDifficulty(
+      song?.difficulties.find((difficulty) => difficulty.chartId === initialChartId) ??
+        song?.difficulties[0] ??
+        null,
+    );
+    setActionError(null);
+  }, [song?.id, initialChartId]);
 
   useEffect(() => {
     return () => {
@@ -138,6 +149,16 @@ export function SongDetailSheet({ song, onClose }: SongDetailSheetProps) {
 
   async function addSelectedSong() {
     if (!song || !selectedDifficulty) return;
+
+    if (isJoinMode) {
+      const joinError = await joinQueueEntry(joinEntryId, selectedDifficulty.chartId);
+      setActionError(joinError);
+
+      if (joinError === null) {
+        setJustAdded(song.id);
+      }
+      return;
+    }
 
     const didAdd = await addToQueue(Number(song.id), selectedDifficulty.chartId);
 
@@ -317,6 +338,7 @@ export function SongDetailSheet({ song, onClose }: SongDetailSheetProps) {
         </div>
 
         {previewError ? <p className="muted">{previewError}</p> : null}
+        {actionError ? <p className="muted">{actionError}</p> : null}
 
         <button
           className="primaryButton addButton"
@@ -327,12 +349,12 @@ export function SongDetailSheet({ song, onClose }: SongDetailSheetProps) {
           {justAdded === song.id ? (
             <>
               <CheckIcon className="tinyIcon" />
-              <span>Added to Queue</span>
+              <span>{isJoinMode ? "Joined" : "Added to Queue"}</span>
             </>
           ) : (
             <>
               <PlusIcon className="tinyIcon" />
-              <span>Add to Queue</span>
+              <span>{isJoinMode ? "Join as Player 2" : "Add to Queue"}</span>
             </>
           )}
         </button>
