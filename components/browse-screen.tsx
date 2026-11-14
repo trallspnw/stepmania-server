@@ -524,8 +524,16 @@ export function BrowseScreen() {
     );
   }
 
+  // Closing removes the parameter rather than going back in history: the
+  // previous history entry isn't always this page (for example after switching
+  // tabs, which keeps these parameters in the URL).
   function closeSong() {
-    router.back();
+    updateBrowseParams(
+      (params) => {
+        params.delete("song");
+      },
+      { replace: true, scroll: false },
+    );
   }
 
   function openFolder(nextFolderView: Exclude<FolderView, null>) {
@@ -536,7 +544,13 @@ export function BrowseScreen() {
   }
 
   function closeFolder() {
-    router.back();
+    updateBrowseParams(
+      (params) => {
+        params.delete("packId");
+        params.delete("packLabel");
+      },
+      { replace: true },
+    );
   }
 
   function commitFilterField(field: keyof Filters) {
