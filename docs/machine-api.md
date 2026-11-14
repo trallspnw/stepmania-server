@@ -33,6 +33,7 @@ Current behavior:
 - `start` marks the current queue head as `playing`
 - `skip` removes the current queue head and advances
 - `finish` records play history, removes the current queue head, and advances
+- `drop` removes side 2 from the current queue head before it starts
 
 Two players:
 
@@ -448,6 +449,39 @@ Missing current song:
 ```
 
 Status: `400`
+
+### `POST /api/game/song/drop`
+
+Drops side 2 (the player who joined) from the current song without skipping it. The cabinet uses it for P2's "Drop out" option.
+
+#### Request body
+
+```json
+{ "queue_item_id": 42 }
+```
+
+#### Request field rules
+
+- `queue_item_id`
+  Required positive integer. It must match the current queue head or the request fails with `400` and no state change occurs.
+
+#### Success
+
+```json
+{
+  "ok": true,
+  "queue_item_id": 42,
+  "dropped": { "id": 15, "display_name": "Sam" }
+}
+```
+
+- `dropped` is `null` when nobody was joined; the request still succeeds.
+- The dropped player can join again from the web queue.
+
+#### Errors
+
+- `409` `{ "error": "The song has already started" }` once the entry is `playing`: the players are fixed after `start`.
+- `400` for an invalid or mismatched `queue_item_id`, or when there's no current song.
 
 ### `GET /api/game/library/manifest`
 
