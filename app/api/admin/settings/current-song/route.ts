@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin";
 import { normalizeLibraryGameMode } from "@/lib/library-mode";
 import { getSetting, setSettings } from "@/lib/settings";
+import { isOpenSignUpEnabled } from "@/lib/sign-up";
 import { SETTING_KEYS } from "@/lib/settingKeys";
 
 export async function GET() {
@@ -15,6 +16,7 @@ export async function GET() {
 
   return NextResponse.json({
     libraryGameMode: normalizeLibraryGameMode(libraryGameMode),
+    openSignUp: await isOpenSignUpEnabled(),
   });
 }
 
@@ -30,10 +32,16 @@ export async function PUT(request: Request) {
     typeof body.libraryGameMode === "string" ? body.libraryGameMode : null,
   );
 
+  const openSignUp = body.openSignUp === true;
+
   await setSettings([
     {
       key: SETTING_KEYS.LIBRARY_GAME_MODE,
       value: libraryGameMode,
+    },
+    {
+      key: SETTING_KEYS.OPEN_SIGN_UP,
+      value: openSignUp ? "true" : "false",
     },
   ]);
 

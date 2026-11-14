@@ -54,6 +54,7 @@ type MachineTokenRecord = {
 
 type ApplicationSettings = {
   libraryGameMode: string;
+  openSignUp: boolean;
 };
 
 type MachineTestResponse = {
@@ -278,6 +279,7 @@ export function AdminConsole({
   const [librarySongsLoading, setLibrarySongsLoading] = useState(false);
   const [applicationSettings, setApplicationSettings] = useState<ApplicationSettings>({
     libraryGameMode: "dance-single",
+    openSignUp: false,
   });
   const [machineTestToken, setMachineTestToken] = useState("");
   const [machineQueueItemId, setMachineQueueItemId] = useState("");
@@ -564,11 +566,13 @@ export function AdminConsole({
 
       const settings = (await settingsResponse.json()) as {
         libraryGameMode: string | null;
+        openSignUp: boolean;
       };
 
       if (!cancelled) {
         setApplicationSettings({
           libraryGameMode: settings.libraryGameMode ?? "dance-single",
+          openSignUp: settings.openSignUp === true,
         });
         setApplicationSettingsLoading(false);
       }
@@ -2304,6 +2308,27 @@ export function AdminConsole({
                         </Select>
                         <p className="text-sm text-stone-600">
                           Controls which chart mode the library browser and queueing flow use by default.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            checked={applicationSettings.openSignUp}
+                            className="h-4 w-4 accent-amber-700"
+                            id="open-sign-up"
+                            onChange={(event) =>
+                              setApplicationSettings((current) => ({
+                                ...current,
+                                openSignUp: event.target.checked,
+                              }))
+                            }
+                            type="checkbox"
+                          />
+                          <Label htmlFor="open-sign-up">Open Sign-Up</Label>
+                        </div>
+                        <p className="text-sm text-stone-600">
+                          Anyone who reaches the site can create a player account at /signup. Invite links work either way.
                         </p>
                       </div>
 
