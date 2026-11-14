@@ -669,6 +669,58 @@ export async function consumeCurrentQueueEntryWithExpectedId(expectedQueueEntryI
   });
 }
 
+/**
+ * Removes side 2 (the join) from the current entry for the cabinet, without
+ * skipping the song. Only before the song starts: the players are fixed after.
+ * Dropping when nobody is joined succeeds and changes nothing.
+ */
+export async function dropCurrentQueueEntryJoin(expectedQueueEntryId: number) {
+  return prisma.$transaction(async (tx) => {
+    const currentEntry = await getCurrentQueueEntryInTx(tx);
+
+    if (!currentEntry) {
+      return {
+        status: "missing" as const,
+      };
+    }
+
+    if (currentEntry.id !== expectedQueueEntryId) {
+      return {
+        status: "mismatch" as const,
+        current: currentEntry,
+      };
+    }
+
+    if (currentEntry.status === "playing") {
+      return {
+        status: "started" as const,
+        current: currentEntry,
+      };
+    }
+
+    const droppedUser = currentEntry.joinedUser;
+
+    if (droppedUser) {
+      await tx.queueEntry.update({
+        where: {
+          id: currentEntry.id,
+        },
+        data: {
+          joinedUserId: null,
+          joinedChartId: null,
+          joinedAt: null,
+        },
+      });
+    }
+
+    return {
+      status: "dropped" as const,
+      entry: currentEntry,
+      droppedUser,
+    };
+  });
+}
+
 export type SideResultInput = {
   side: 1 | 2;
   chartId: number;
