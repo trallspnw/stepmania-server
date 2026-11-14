@@ -24,9 +24,11 @@ export function QueueScreen() {
   const [joinEntry, setJoinEntry] = useState<QueueEntryRecord | null>(null);
   const [joinSong, setJoinSong] = useState<BrowseSongRecord | null>(null);
   const [joinLoadingEntryId, setJoinLoadingEntryId] = useState<number | null>(null);
+  const [joinErrorEntryId, setJoinErrorEntryId] = useState<number | null>(null);
 
   async function openJoinSheet(entry: QueueEntryRecord) {
     setJoinLoadingEntryId(entry.id);
+    setJoinErrorEntryId(null);
 
     const response = await fetch(`/api/library/browse/songs/${entry.song.id}`, {
       cache: "no-store",
@@ -35,7 +37,9 @@ export function QueueScreen() {
 
     setJoinLoadingEntryId(null);
 
+    // 404 means the song is no longer in the library, so there's no chart to pick.
     if (!response.ok) {
+      setJoinErrorEntryId(entry.id);
       return;
     }
 
@@ -112,6 +116,9 @@ export function QueueScreen() {
                   <DifficultyPill chart={entry.joined.chart} />
                   <span className="muted">with {entry.joined.user.displayName}</span>
                 </div>
+              ) : null}
+              {joinErrorEntryId === entry.id ? (
+                <p className="muted">Can&apos;t join: this song isn&apos;t in the library anymore.</p>
               ) : null}
             </div>
             <div className="queueActions">
