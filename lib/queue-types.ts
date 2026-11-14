@@ -1,5 +1,11 @@
 import type { BrowseDifficultySlot } from "@/lib/library-browser";
 
+export interface QueueChartRecord {
+  id: number;
+  difficultySlot: BrowseDifficultySlot;
+  meter: number;
+}
+
 export interface QueueEntryRecord {
   id: number;
   status: "queued" | "playing";
@@ -14,12 +20,18 @@ export interface QueueEntryRecord {
     title: string;
     artist: string;
   };
-  chart: {
-    id: number;
-    difficultySlot: BrowseDifficultySlot;
-    meter: number;
-  };
+  chart: QueueChartRecord;
+  /** The second player (P2) playing along, if someone joined. */
+  joined: {
+    user: {
+      id: number;
+      displayName: string;
+    };
+    chart: QueueChartRecord;
+  } | null;
   canRemove: boolean;
+  canJoin: boolean;
+  canLeave: boolean;
 }
 
 export interface QueueResponse {
